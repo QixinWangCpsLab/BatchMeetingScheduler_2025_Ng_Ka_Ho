@@ -17,7 +17,9 @@
       <div class="card-body" >
         <h1 class="mb-4 text-poly">Create meeting</h1>
 
-        <form  action="createmeeting.php" method="post" enctype="multipart/form-data">
+        <form  action="createmeeting.php" id="register" method="post" enctype="multipart/form-data">
+          
+          
           <div class="mb-3">
             <label for="title" class="form-label">Meeting title</label>
             <input type="text" class="form-control" id="title" name="title" required>
@@ -36,6 +38,7 @@
 
           </div>
 
+
           <div class="mb-3">
             <label for="duration" class="form-label">Duration of each meeting (minutes)</label>
             <input type="number" class="form-control" id="duration" name="duration" required>
@@ -43,7 +46,17 @@
           </div>
 
           <div class="mb-3">
-            <label for="deadline" class="form-label">Deadline time</label>
+            <label for="Datechoicenum" class="form-label">How many preferred days should a student choose?</label>
+            <input type="number" class="form-control" id="Datechoicenum" name="Datechoicenum" required>
+          </div>
+
+          <div class="mb-3">
+            <label for="Slotchoicenum" class="form-label">For each preferred day, how many preferred time-slots should a student choose?</label>
+            <input type="number" class="form-control" id="Slotchoicenum" name="Slotchoicenum" required>
+          </div>
+
+          <div class="mb-3">
+            <label for="deadline" class="form-label">Deadline for Input</label>
 
                 <input type="datetime-local" class="form-control" id="deadline" name="deadline" required>
 
@@ -67,7 +80,7 @@
               <div class="card-body">
 
 
-                  <h5>Day 1 </h5>
+                <h5>Day 1 </h5>
 
 
 
@@ -90,7 +103,7 @@
                       <label class="form-label ">Start time: </label>
                       <div class="row">
                         <div class="col mb-2">
-                          <input type="time" class="form-control"   name="day1startime[]" maxlength="100" required>
+                          <input type="time" class="form-control" id="day1startime[]" name="day1startime[]" maxlength="100" required>
                         </div>
                       </div>
 
@@ -99,10 +112,9 @@
                       <label   class="form-label ">End time : </label>
                       <div class="row">
                         <div class="col mb-2">
-                          <input type="time" class="form-control"   name="day1endtime[]" maxlength="100" required>
+                          <input type="time" class="form-control" id=day1endtime[]  name="day1endtime[]" maxlength="100" required>
                         </div>
                       </div>
-
                     </div>
                   </div>
 
@@ -110,39 +122,36 @@
 
               </div>
             </div>
-
-
-
+            
 
 
 
           </div>
-
+          
           <div class="mb-3">
             <label for="studentid" class="form-label">Student ID </label><br>
-            <label for="studentid" class="form-label"> <small>(use commas to separate more than one id, example: 20032741d, 20032743d, 20032752d)</small></label>
-            <textarea class="form-control" id="studentid" name="studentid" rows="3" required></textarea>
-
-
+            <input type = "file" name="importfile" id="importfile" class="form-control" accept=".xls,.xlsx,.csv" required>
+            <!-- <textarea class="form-control" id="studentid" name="studentid" rows="3" required></textarea> -->
           </div>
 
+          <div class ="error" id="error"></div>
 
           <div class="d-grid">
-            <button type="submit" class="btn btn-poly fw-bold text-white" >Submit</button>
+            <button type="submit" class="btn btn-poly fw-bold text-white" id="submitbtn" >Submit</button>
           </div>
 
           <input type="hidden" id="daycount" name="daycount" value="1">
-
+          
         </form>
-
+        
 
       </div>
     </div>
   </main>
-
+  
 </div>
 
-<script src="/scripts/jquery-3.6.0.min.js"></script>
+<script src="scripts/jquery-3.6.0.min.js"></script>
 <script>
   $(document).ready(function() {
 
@@ -154,13 +163,14 @@
       e.preventDefault();
 
       $(this).parent().append('<div class="row"> <div class="col"> <div class="row"> <div class="col mb-2"> <input type="time" class="form-control"   name="day'+$(this).attr("day")+'startime[]" maxlength="100" required> </div> </div> </div> <div class="col"> <div class="row"> <div class="col mb-2"> <input type="time" class="form-control"   name="day'+$(this).attr("day")+'endtime[]" maxlength="100" required> </div> </div> </div> <div class="col-auto"> <button type="button" class="btn btn-danger m-0  delete fw-bold">Delete</button> </div> </div>');
+      
     });
 
 
     $(add_day_button).click(function (e) {
       e.preventDefault();
 
-      $(this).parent().parent().parent().append('<div class="card bg-light mx-1 my-3"> <div class="card-body"> <div class="d-flex justify-content-between"> <h5 class="card-title">Day '+daycount+'</h5> <a class="btn btn-danger  fw-bold delete " id="day'+daycount+'delete" day="'+daycount+'"   role="button">Delete</a> </div> <div class="col-12"> <label for="day'+daycount+'date" class="form-label ">Date : </label> <div class="row"> <div class="col mb-2"> <input type="date" class="form-control"  id="day'+daycount+'date" name="day'+daycount+'date"  required> </div> </div> </div> <div class="col-12"> <label  class="form-label fw-bold">Time Slots : </label> <button type="button" class="btn btn-poly fw-bold text-white mb-2 ms-3 addtimeslot" day="'+daycount+'" >Add</button> <div class="row"> <div class="col-6"> <label class="form-label ">Start time: </label> <div class="row"> <div class="col mb-2"> <input type="time" class="form-control"   name="day'+daycount+'startime[]" maxlength="100" required> </div> </div> </div> <div class="col-6"> <label   class="form-label ">End time : </label> <div class="row"> <div class="col mb-2"> <input type="time" class="form-control"   name="day'+daycount+'endtime[]" maxlength="100" required> </div> </div> </div> </div> </div> </div> </div>');
+      $(this).parent().parent().parent().append('<div class="card bg-light mx-1 my-3"> <div class="card-body"> <div class="d-flex justify-content-between"> <h5 class="card-title">Day '+daycount+'</h5> <a class="btn btn-danger  fw-bold delete " id="day'+daycount+'delete" day="'+daycount+'"   role="button">Delete</a> </div> <div class="col-12"> <label for="day'+daycount+'date" class="form-label ">Date : </label> <div class="row"> <div class="col mb-2"> <input type="date" class="form-control"  id="day'+daycount+'date" name="day'+daycount+'date"  required> </div> </div> </div> <div class="col-12"> <label  class="form-label fw-bold">Time Periods : </label> <button type="button" class="btn btn-poly fw-bold text-white mb-2 ms-3 addtimeslot" day="'+daycount+'" >Add</button> <div class="row"> <div class="col-6"> <label class="form-label ">Start time: </label> <div class="row"> <div class="col mb-2"> <input type="time" class="form-control"   name="day'+daycount+'startime[]" maxlength="100" required> </div> </div> </div> <div class="col-6"> <label   class="form-label ">End time : </label> <div class="row"> <div class="col mb-2"> <input type="time" class="form-control"   name="day'+daycount+'endtime[]" maxlength="100" required> </div> </div> </div> </div> </div> </div> </div>');
 
       if (daycount>2){
         $('#day'+(daycount-1)+'delete').addClass("disabled");
@@ -168,6 +178,8 @@
 
       $('#daycount').val(daycount);
       daycount++;
+      
+
     });
 
    
@@ -189,13 +201,45 @@
 
     })
 
+    $('#submitbtn').click(function(e) {
+    const date = document.getElementById("Datechoicenum");
+    const form = document.getElementById("register");
+    const errorElement = document.getElementById("error");
+    const duration = document.getElementById("duration");
+    var starttime = document.getElementById("day1startime[]");
+    var endtime = document.getElementById("day1endtime[]");
 
+    form.addEventListener("submit",(e)=>{
+      let message =[];
+      
+      
+      if (date.value <= 0){
+        message.push("Date cannot be zero");
+      }
+
+      if ((duration.value <= 0) || (duration.value >60)){
+        message.push("Duration cannot be zero");
+      }
+      
+
+      if (message.length >0){
+        e.preventDefault();
+        errorElement.innerHTML=message.join("<br> ");
+        //alert(starttime.value);
+      }
+      
+    })
+
+    
+    })
 
   })
 
 
 
 </script>
+
+
 
 </body>
 </html>

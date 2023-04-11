@@ -25,11 +25,18 @@
 
           </div>
 
+          <div class="mb-3">
+            <label for="password" class="form-label">Password</label>
+            <input type="text" class="form-control" id="password" name="password" required>
+
+          </div>
+
           <div class="d-grid">
             <button type="button" id="submit" class="btn btn-poly fw-bold text-white" >Submit</button>
           </div>
 
-
+          
+          
 
         </form>
 
@@ -45,7 +52,7 @@
 
 <script>
   $("#submit").click(function(){
-    window.location.href = "status.php?uuid="+$("#code").val();
+    window.location.href = "status.php?examid="+$("#code").val()+"&password="+$("#password").val()+"&success";
   });
 </script>
 

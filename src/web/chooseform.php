@@ -1,15 +1,15 @@
 <?php
 date_default_timezone_set("Asia/Hong_Kong");
-include $_SERVER["DOCUMENT_ROOT"] . "/conn/conn.php";
+include $_SERVER["DOCUMENT_ROOT"] . "/testwsqlnew/conn/conn.php";
 
 
 
 
 
-$stmt = $conn->prepare("SELECT * FROM `meeting` WHERE `uuid` = ? ");
+$stmt = $conn->prepare("SELECT * FROM `exam` WHERE `examid` = ? ");
 
 
-$stmt->bind_param("s" , $_POST['uuid'] );
+$stmt->bind_param("s" , $_POST['examid'] );
 
 $stmt->execute();
 
@@ -19,27 +19,39 @@ if ($result->num_rows==1){
 
     while ($row = $result->fetch_assoc()) {
 
-        $mt_studentid = json_decode($row['studentid'], true);
-        $mt_timeslots=json_decode($row['timeslots'], true);
+        //$mt_studentid = json_decode($row['studentid'], true);
+        //$mt_timeslots=json_decode($row['timeslots'], true);
 
-        $timeslotsnum=count($mt_timeslots);
+        //$timeslotsnum=count($mt_timeslots);
 
         $mt_deadline = $row['deadline'];
+        $datenum = $row['datechoicenum'];
+        $timeslotsnum = $row['slotchoicenum'];
 
 
 
 
-        if(in_array($_POST['studentid'],$mt_studentid)){
+        $Astmt = $conn->prepare("SELECT `password` FROM `studentexammatch` WHERE `examid` = ? AND `studentid` = ?" );
+        $Astmt->bind_param("ss" , $_POST['examid'], $_POST['studentid']);
+        $Astmt->execute();
+        $Aresult = $Astmt->get_result();
+        
+        if ($Aresult->num_rows==1){
+            while ($Arow = $Aresult->fetch_assoc()) {
+                $stu_pass = $Arow['password'];
+                if ($_POST['stupassword'] == $stu_pass){
+                    if (time()>strtotime($mt_deadline)){
+                        header('Location: result.php?examid='.$_POST['examid']);
+                        die();
 
-            if (time()>strtotime($mt_deadline)){
-                header('Location: result.php?uuid='.$_POST['uuid']);
-                die();
-
+                    }
+                }
             }
 
-
-
         }else{
+            
+            
+            
             header('Location: index.html');
             die();
         }
@@ -53,8 +65,7 @@ if ($result->num_rows==1){
     die();
 }
 
-$stmt->free_result();
-$stmt->close();
+//$stmt->free_result();
 
 
 
@@ -66,66 +77,51 @@ $stmt->close();
 
 
 
-$stmt = $conn->prepare("SELECT * FROM `choose` WHERE `uuid` = ? AND `studentid` = ? ");
+
+$prefstmt = $conn->prepare("SELECT * FROM `preference` WHERE `examid` = ? AND `studentid` = ? ");
 
 
-$stmt->bind_param("ss" , $_POST['uuid'] ,$_POST['studentid'] );
+$prefstmt->bind_param("ss" , $_POST['examid'] ,$_POST['studentid'] );
 
-$stmt->execute();
+$prefstmt->execute();
 
-$result = $stmt->get_result();
+$prefresult = $prefstmt->get_result();
+
+$total = $datenum*$timeslotsnum;
 
 
+if ($prefresult->num_rows>0){
 
-
-for ($x = 2; $x <= 10; $x++) {
-
-    if ($x<=$timeslotsnum){
-        ${'choose'.$x}=$_POST['choose'.$x];
-
-    }else{
-        ${'choose'.$x}=NULL;
+    //$row = $prefresult->fetch_assoc();
+    //$existid=$row['id'];
+    $prefstmt->free_result();
+    $prefstmt->close();
+    
+    for ($y = 1; $y <= $total; $y++){
+    $prefstmt = $conn->prepare("UPDATE `preference` SET `timestamp` = ?, `timeslotid` = ? WHERE `examid` = ? AND `studentid` = ? AND `priority` = ?");
+    $prefstmt->bind_param("sissi", $_POST['timestamp'], $_POST['choose'.$y], $_POST['examid'],  $_POST['studentid'], $y);
+    $prefstmt->execute();
+    $prefstmt->close();
     }
-
-}
-
-if ($result->num_rows>0){
-
-    $row = $result->fetch_assoc();
-
-    $existid=$row['id'];
-
-    $stmt->free_result();
-    $stmt->close();
-
-
-    $stmt = $conn->prepare("UPDATE `choose` SET `choose1` = ?, `choose2` = ?, `choose3` = ?, `choose4` = ?, `choose5` = ?, `choose6` = ?, `choose7` = ?, `choose8` = ?, `choose9` = ?, `choose10` = ? WHERE `choose`.`id` = $existid");
-
-    $stmt->bind_param("ssssssssss",  $_POST["choose1"],$choose2 ,$choose3,$choose4,$choose5,$choose6,$choose7,$choose8,$choose9,$choose10 );
-
-
-    $stmt->execute();
-    $stmt->close();
-
-    header('Location: successchoose.html');
+    
+    header('Location: sortsequence.php?examid='.$_POST['examid'].'&studentid='.$_POST['studentid']);
 
 }else{
-    $stmt->free_result();
-    $stmt->close();
+    $prefstmt->free_result();
+    $prefstmt->close();
 
-    $stmt = $conn->prepare('INSERT INTO `choose` (`id`, `studentid`, `uuid`, `choose1`, `choose2`, `choose3`, `choose4`, `choose5`, `choose6`, `choose7`, `choose8`, `choose9`, `choose10`) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);');
-
-    $stmt->bind_param("ssssssssssss", $_POST['studentid'],  $_POST['uuid'] , $_POST["choose1"],$choose2 ,$choose3,$choose4,$choose5,$choose6,$choose7,$choose8,$choose9,$choose10 );
-
-
-    $stmt->execute();
-    $stmt->close();
-
-    header('Location: successchoose.html');
+    for ($x = 1; $x <= $total; $x++){
+    $prefstmt = $conn->prepare('INSERT INTO `preference` (`id`, `examid`, `studentid`, `timestamp`, `timeslotid`, `priority`) VALUES (NULL, ?, ?, ?, ?, ?);');
+    $prefstmt->bind_param("sssii", $_POST['examid'],  $_POST['studentid'] ,$_POST['timestamp'], $_POST['choose'.$x], $x);
+    $prefstmt->execute();
+    $prefstmt->close();
+    }
+    header('Location: sortsequence.php?examid='.$_POST['examid'].'&studentid='.$_POST['studentid']);
+    //header('Location: sortsequence.php');
 }
 
 
-
+$stmt->close();
 
 
 

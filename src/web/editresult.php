@@ -1,315 +1,214 @@
 <?php
 date_default_timezone_set("Asia/Hong_Kong");
-include $_SERVER["DOCUMENT_ROOT"] . "/conn/conn.php";
+include $_SERVER["DOCUMENT_ROOT"] . "/testwsqlnew/conn/conn.php";
 
-$stmt = $conn->prepare("SELECT * FROM `result` WHERE `uuid` = ? ");
+$stmt = $conn->prepare("SELECT * FROM `exam` WHERE `examid` = ? ");
 
-
-$stmt->bind_param("s" , $_GET['uuid'] );
+$stmt->bind_param("s" , $_GET['examid'] );
 
 $stmt->execute();
 
 $result = $stmt->get_result();
 
 if ($result->num_rows==1){
-
     while ($row = $result->fetch_assoc()) {
-
-
-        $timeslotsarray=json_decode($row['result']) ;
-        $stmt->free_result();
-        $stmt->close();
-
-        $stmt = $conn->prepare("SELECT * FROM `meeting` WHERE `uuid` = ? ");
-
-
-        $stmt->bind_param("s" , $_GET['uuid'] );
-
-        $stmt->execute();
-
-        $result = $stmt->get_result();
-
-        if ($result->num_rows==1){
-
-            while ($row = $result->fetch_assoc()) {
-
-                $mt_title = $row['title'];
-                $mt_subject = $row['subject'];
-                $mt_teacher = $row['teacher'];
-                $mt_duration = $row['duration'];
-                $mt_deadline = $row['deadline'];
-                $mt_password = $row['password'];
-                $mt_studentid = json_decode($row['studentid'], true);
-
-                if ($mt_password!=$_GET['password']){
-                    header('Location: index.html');
-                    die();
-                }
-
-
-            }
-
+        $mt_password = $row['password'];
+        $password = $_GET['password'];
+    
+        if ($mt_password == $password){
+            $mt_title = $row['title'];;
+            $mt_subject = $row['subject'];
+            $mt_teacher = $row['teacher'];
+            $mt_duration = $row['duration'];
+            $mt_deadline = $row['deadline'];
+            $mt_datechoicenum = $row['datechoicenum'];
+            $mt_slotchoicenum = $row['slotchoicenum'];
+            $roundindex = $row['roundindex'];
+            // $mt_studentid = json_decode($row['studentid'], true);
+        }
+        else{
+            echo '<script>alert("This is not the correct exam edit password")</script>';
+            echo '<script>window.location.href = "teacherview.html";</script>';
+            die();
         }
 
-        $stmt->free_result();
-        $stmt->close();
     }
 
+    $stmt->free_result();
+    $stmt->close();
 
-}else{
+}
 
-
-
-    $stmt = $conn->prepare("SELECT * FROM `meeting` WHERE `uuid` = ? ");
-
-
-    $stmt->bind_param("s" , $_GET['uuid'] );
-
+if (time()>strtotime($mt_deadline)){
+    $stmt = $conn->prepare("SELECT * FROM `result` WHERE `examid` = ? ");
+    $stmt->bind_param("s" , $_GET['examid'] );
     $stmt->execute();
-
     $result = $stmt->get_result();
 
-    if ($result->num_rows==1){
+    if ($result->num_rows<1){
+        // echo '<script>alert("You should get the result first")</script>';
+        // echo '<script>window.location.href = "checkallresult.html";</script>';
 
-        while ($row = $result->fetch_assoc()) {
-
-            $mt_deadline = $row['deadline'];
-            $mt_timeslots=json_decode($row['timeslots'], true);
-            $mt_studentid=json_decode($row['studentid'], true);
-
-            $timeslotsnum=count($mt_timeslots)>10? 10 :count($mt_timeslots);
-
-            $stmt->free_result();
-            $stmt->close();
-
-            if (time()>strtotime($mt_deadline)){
-
-                $studentidarray=[];
-                $timeslotsarray=[];
-
-                $stmt = $conn->prepare("SELECT * FROM `choose` WHERE `uuid` = ? ");
-
-                $stmt->bind_param("s" , $_GET['uuid'] );
-
-                $stmt->execute();
-
-                $result = $stmt->get_result();
-
-                while ($row = $result->fetch_assoc()) {
-
-                    array_push($studentidarray,$row['studentid']);
-
-                }
-
-                $studentidarray_random= $studentidarray;
-                shuffle($studentidarray_random);
-
-                foreach ($mt_timeslots as $value) {
-                    $timeslotsarray[$value]=0;
-                }
-
-                $stmt->free_result();
-                $stmt->close();
-
-
-                for ($x = 1; $x <= $timeslotsnum && count($studentidarray_random)>0 ; $x++) {
-
-
-
-                    foreach ($studentidarray_random as $y => $value){
-
-                        $sql = "SELECT * FROM `choose` WHERE `uuid` = \"{$_GET['uuid']}\"  AND `studentid`= \"$value\"  ";
-
-                        $result = $conn->query($sql);
-                        while ($row = $result->fetch_assoc()){
-                            if ($timeslotsarray[$row['choose'.$x]]==0){
-                                $timeslotsarray[$row['choose'.$x]]=$value;
-                                unset($studentidarray_random[$y]);
-                            }
-                        }
-
-
-
-                    }
-
-                }
-
-
-                $remainstudent=array_diff($mt_studentid,$studentidarray);
-
-
-
-                shuffle($remainstudent);
-
-
-                foreach ($remainstudent as $value){
-
-                    foreach ($timeslotsarray as $y => $value2){
-                        if ($value2==0){
-                            $timeslotsarray[$y]=$value;
-                            break;
-                        }
-                    }
-                }
-
-
-                $timeslotsarray=json_encode($timeslotsarray) ;
-
-
-
-
-                $sql = "INSERT INTO `result` (`id`, `uuid`, `result`) VALUES (NULL, '{$_GET['uuid']}', '{$timeslotsarray}')";
-
-                $conn->query($sql);
-
-                $timeslotsarray=json_decode($timeslotsarray) ;
-
-
-                $stmt = $conn->prepare("SELECT * FROM `meeting` WHERE `uuid` = ? ");
-
-
-                $stmt->bind_param("s" , $_GET['uuid'] );
-
-                $stmt->execute();
-
-                $result = $stmt->get_result();
-
-                if ($result->num_rows==1){
-
-                    while ($row = $result->fetch_assoc()) {
-
-                        $mt_title = $row['title'];
-                        $mt_subject = $row['subject'];
-                        $mt_teacher = $row['teacher'];
-                        $mt_duration = $row['duration'];
-                        $mt_deadline = $row['deadline'];
-                        $mt_password = $row['password'];
-                        $mt_studentid = json_decode($row['studentid'], true);
-
-
-                        if ($mt_password!=$_GET['password']){
-                            header('Location: index.html');
-                            die();
-                        }
-
-
-                    }
-
-                }
-
-                $stmt->free_result();
-                $stmt->close();
-
-            }else{
-                header('Location: index.html');
-            }
-        }
-
-    }else{
         $stmt->free_result();
         $stmt->close();
-        header('Location: index.html');
     }
 
-
-
-
+}
+else{
+    // echo '<script>alert("The timeslot allocation is still not yet available")</script>';
+    // echo '<script>window.location.href = "teacherview.html";</script>';
+    // $stmt->free_result();
+    // $stmt->close();
+    // die();
 }
 
 
-if (isset($timeslotsarray)){
-
-    ?>
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-        <link rel="icon" href="images/favicon.ico" />
-        <title>PolyU reservation system</title>
-        <link rel="stylesheet" href="styles/bootstrap.min.css" >
-        <link rel="stylesheet" href="styles/main.css" >
-    </head>
-    <body class="bg-poly d-flex align-items-center h-100">
-
-    <div class="container">
-
-        <main class="w-100 m-auto" id="main"  >
-            <div class="card py-md-5 py-2 px-sm-2 px-md-5   my-5 w-100"  >
-                <div class="card-body" >
 
 
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <link rel="icon" href="images/favicon.ico" />
+    <title>PolyU reservation system</title>
+    <link rel="stylesheet" href="styles/bootstrap.min.css" >
+    <link rel="stylesheet" href="styles/main.css" >
+</head>
+<body class="bg-poly d-flex align-items-center h-100">
 
-                    <h1 class="mb-4 text-poly">Edit results</h1>
+<div class="container">
+
+    <main class="w-100 m-auto" id="main"  >
+        <div class="card py-md-5 py-2 px-sm-2 px-md-5   my-5 w-100"  >
+            <div class="card-body" >
 
 
-                    <h4>Meeting title: <small class="text-secondary"> <?php echo $mt_title ?></small></h4>
-                    <h4>Subject title: <small class="text-secondary"><?php echo $mt_subject ?></small></h4>
-                    <h4>Teacher name: <small class="text-secondary"><?php echo $mt_teacher ?></small></h4>
-                    <h4>Duration of each meeting (minutes): <small class="text-secondary"><?php echo $mt_duration ?></small></h4>
-                    <h4>Deadline time: <small class="text-secondary"> <?php echo $mt_deadline ?> </small></h4>
-                    <h4>Meeting code: <small class="text-secondary"> <?php echo $_GET['uuid'] ?> </small></h4>
 
-                    <form  action="editform.php" method="post" enctype="multipart/form-data">
+                <h1 class="mb-4 text-poly">Edit results</h1>
 
-                    <table class="table mt-5">
-                        <thead>
-                        <tr>
-                            <th scope="col">Time slot</th>
-                            <th scope="col">Student id</th>
-                        </tr>
-                        </thead>
-                        <tbody>
 
-                        <?php
+                <h4>Meeting title: <small class="text-secondary"> <?php echo $mt_title ?></small></h4>
+                <h4>Subject title: <small class="text-secondary"><?php echo $mt_subject ?></small></h4>
+                <h4>Teacher name: <small class="text-secondary"><?php echo $mt_teacher ?></small></h4>
+                <h4>Duration of each meeting (minutes): <small class="text-secondary"><?php echo $mt_duration ?></small></h4>
+                <h4>Deadline for Input: <small class="text-secondary"> <?php echo $mt_deadline ?> </small></h4>
+                <h4>Meeting code: <small class="text-secondary"> <?php echo $_GET['examid'] ?> </small></h4>
 
-                        foreach ($timeslotsarray as $x  =>  $value){
-                            echo "<tr><td>{$x}</td>
+                <form action="editform.php" method="post" enctype="multipart/form-data">
 
-                                    <td>
-                             <select class=\"form-select\" name=\"{$x}\" required>
-                            <option selected hidden value='{$value}' >{$value}</option>";
+                <table class="table mt-5">
+                    <thead>
+                    <tr>
+                        <th scope="col">Timeslot</th>
+                        <th scope="col">Student id</th>
+                    </tr>
+                    </thead>
+                    <tbody>
 
-                            foreach ($mt_studentid as  $value2){
+                    <?php
+                    $studentarray = [];
 
-                                echo "<option value='{$value2}' >{$value2}</option>";
+                    $stustmt = $conn->prepare("SELECT * FROM `studentexammatch` WHERE `examid` = ?");
+                    $stustmt->bind_param("s" , $_GET['examid'] );
+                    $stustmt->execute();
+                    $sturesult = $stustmt->get_result();
+                    while ($sturow = $sturesult-> fetch_assoc()){
+                        array_push($studentarray,$sturow["studentid"]);
+                    }
 
+                    $findslots  = $conn->prepare("SELECT * FROM `meetingtimeslots` WHERE `examid` = ?");
+                    $findslots ->bind_param("s" , $_GET['examid']);
+                    $findslots ->execute();
+                    $slotsR = $findslots ->get_result();
+            
+                    while ($slotrow = $slotsR->fetch_assoc()) {
+                        if ($slotrow["scheduled"] == 1){
+                            $stmt = $conn->prepare("SELECT * FROM `result` WHERE `examid` = ?");
+                            $stmt->bind_param("s" , $_GET['examid'] );
+                            $stmt->execute();
+                            $result = $stmt->get_result();
+            
+                            while ($row = $result->fetch_assoc()){
+                                if ($slotrow['timeslotid'] == $row['timeslotid']){
+                                    echo "<tr>
+                                                <td>{$slotrow['timeslot']}</td>
+                                                <td>
+                                                    <select class=\"form-select\" name = '{$row['timeslotid']}' >
+                                                    <option selected hidden value='{$row['studentid']}'> {$row['studentid']} </option>
+                                          ";
+
+                                    foreach ($studentarray as  $y){
+                                        echo "<option value='{$y}'> {$y} </option>";
+                                    }
+
+                                    echo "<option value='0'> 0 </option>";
+                                    echo "</select> </td></tr>";
+
+                                }
                             }
-
-
-
-                                echo "</select> </td></tr>";
                         }
+                        else if ($slotrow["scheduled"] == 0){
+                            echo "<tr>
+                                        <td>{$slotrow['timeslot']}</td>
+                                        <td>
+                                            <select class=\"form-select\" name = '{$slotrow['timeslotid']}' >
+                                            <option selected hidden value='0'> 0 </option>
+                                  ";
+
+                            foreach ($studentarray as  $y){
+                                echo "<option value='{$y}'> {$y} </option>";
+                            }
+                            echo "<option value='0'> 0 </option>";
+                            echo "</select> </td></tr>";
+                        }
+                    }
+
+                    // foreach ($timeslotsarray as $x  =>  $value){
+                    //     echo "<tr><td>{$x}</td>
+
+                    //             <td>
+                    //         <select class=\"form-select\" name=\"{$x}\" required>
+                    //     <option selected hidden value='{$value}' >{$value}</option>";
+
+                    //     foreach ($mt_studentid as  $value2){
+
+                    //         echo "<option value='{$value2}' >{$value2}</option>";
+
+                    //     }
 
 
-                        ?>
+
+                    //         echo "</select> </td></tr>";
+                    // }
 
 
-                        </tbody>
-                    </table>
+                    ?>
 
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-poly fw-bold text-white" >Submit</button>
-                        </div>
 
-                        <input type="hidden"  name="uuid" value="<?php echo $_GET['uuid'] ?>">
-                        <input type="hidden"  name="password" value="<?php echo $_GET['password'] ?>">
+                    </tbody>
+                </table>
 
-                    </form>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-poly fw-bold text-white" >Submit</button>
+                    </div>
 
-                </div>
+                    <input type="hidden"  name="examid" value="<?php echo $_GET['examid'] ?>">
+                    <input type="hidden"  name="password" value="<?php echo $_GET['password'] ?>">
+
+                </form>
+
             </div>
-        </main>
+        </div>
+    </main>
 
-    </div>
+</div>
 
 
 
 
-    </body>
-    </html>
+</body>
+</html>
 
     <?php
-
-
-}

@@ -1,8 +1,8 @@
 <?php
 date_default_timezone_set("Asia/Hong_Kong");
-include $_SERVER["DOCUMENT_ROOT"] . "/conn/conn.php";
+include $_SERVER["DOCUMENT_ROOT"] . "/testwsqlnew/conn/conn.php";
 
-$stmt = $conn->prepare("SELECT * FROM `meeting` WHERE `uuid` = ? ");
+$stmt = $conn->prepare("SELECT * FROM `exam` WHERE `examid` = ? ");
 
 
 $stmt->bind_param("s" , $_POST['code'] );
@@ -13,69 +13,57 @@ $result = $stmt->get_result();
 
 if ($result->num_rows==1){
 
-    while ($row = $result->fetch_assoc()) {
+    while ($row = $result->fetch_assoc()){
 
-        $mt_studentid = json_decode($row['studentid'], true);
+        //$mt_studentid = json_decode($row['studentid'], true);
 
+        $studentstmt = $conn->prepare("SELECT * FROM `studentexammatch` WHERE `examid` = ? AND `studentid` = ?");
+        $studentstmt->bind_param("ss" , $_POST['code'],$_POST['studentid'] );
+        $studentstmt->execute();
+        $ssresult = $studentstmt->get_result();
 
+        if ($ssresult->num_rows==1){
+            while($ssrow = $ssresult -> fetch_assoc()){
+                $ms_password=$ssrow["password"];
+            }
 
+            if ($_POST['stupassword'] == $ms_password){
+                $mt_title = $row['title'];
+                $mt_subject = $row['subject'];
+                $mt_teacher = $row['teacher'];
+                $mt_duration = $row['duration'];
+                $mt_deadline = $row['deadline'];
+                //$mt_timeslots = json_decode($row['timeslots'], true);
+                //$mt_choicenum = $row['choicenum'];
 
-        if(in_array($_POST['studentid'],$mt_studentid)){
-
-            $mt_title = $row['title'];
-            $mt_subject = $row['subject'];
-            $mt_teacher = $row['teacher'];
-            $mt_duration = $row['duration'];
-            $mt_deadline = $row['deadline'];
-            $mt_timeslots = json_decode($row['timeslots'], true);
-
+                $stmt->free_result();
+                $stmt->close();     
+        
+            }
+            else{
+                ?>
+                <script>
+                alert("wrong password");
+                window.location.href = 'index.html';
+                </script>
+                <?php
+            }
+            
         }else{
             ?>
             <script>
-                alert("worng student id");
+                alert("wrong student id");
                 window.location.href = 'index.html';
             </script>
             <?php
         }
-
-        $stmt->free_result();
-        $stmt->close();
-
-
-        $stmt = $conn->prepare("SELECT * FROM `choose` WHERE `uuid` = ? AND `studentid` = ?;");
-
-
-        $stmt->bind_param("ss" , $_POST['code'] ,$_POST['studentid'] );
-
-        $stmt->execute();
-
-        $result = $stmt->get_result();
-
-        if ($result->num_rows==1){
-
-            while ($row = $result->fetch_assoc()) {
-
-                $studentchoose=$row;
-
-
-            }
-
-
-
-        }else{
-            header('Location: index.html');
-        }
-
     }
-
-
-
+        
+    
 }else{
     header('Location: index.html');
+
 }
-
-
-
 
 
 
@@ -115,74 +103,83 @@ if ($result->num_rows==1){
                 <h4>Subject title: <small class="text-secondary"><?php echo $mt_subject ?></small></h4>
                 <h4>Teacher name: <small class="text-secondary"><?php echo $mt_teacher ?></small></h4>
                 <h4>Duration of each meeting (minutes): <small class="text-secondary"><?php echo $mt_duration ?></small></h4>
-                <h4>Deadline time: <small class="text-secondary"> <?php echo $mt_deadline ?> </small></h4>
+                <h4>Deadline for Input: <small class="text-secondary"> <?php echo $mt_deadline ?> </small></h4>
                 <h4>Meeting code: <small class="text-secondary"> <?php echo $_POST['code'] ?> </small></h4>
+                <h4>Your Student ID: <small class="text-secondary"> <?php echo $_POST['studentid'] ?> </small></h4>
 
-
-                <form  action="" method="post" enctype="multipart/form-data">
-
-                    <input type="hidden"  name="studentid" value="<?php echo $_POST['studentid'] ?>">
-                    <input type="hidden"  name="uuid" value="<?php echo $_POST['code'] ?>">
-
-                    <div class="mb-3 mt-5">
-                        <label for="code" class="form-label">First choose</label>
-                        <select class="form-select" name="choose1" required>
-
-
-                            <?php
-
-
-                                echo "<option disabled selected hidden>{$studentchoose['choose1']}</option>";
-
-
-                            ?>
-
-                        </select>
-
-                    </div>
-
-                    <?php
-
-                    $choose_num=count($mt_timeslots)>10? 10 :count($mt_timeslots);
-
-                    $choose_words=["First","Second","Third","Fourth","Fifth","Sixth","Seventh","Eighth","Ninth","Tenth"];
-
-                    for ($x = 2; $x <= $choose_num; $x++) {
-
-                        ?>
-
-                        <div class="mb-3">
-                            <label for="code" class="form-label"><?php echo $choose_words[$x-1] ?> choose</label>
-                            <select class="form-select" name="choose<?php echo $x ?>" required>
-
-
-                                <?php
-
-
-                                    echo "<option disabled selected hidden >".$studentchoose['choose'.$x]."</option>";
-
-
-                                ?>
-
-                            </select>
-
-                        </div>
-
+                <table class="table mt-5">
+                    <thead>
+                    <tr>
+                        <th scope="col">Timeslot</th>
+                        <th scope="col">Priority</th>
+                    </tr>
+                    </thead>
+                    <tbody>
 
                         <?php
 
-                    }
+                            if (isset($_POST['studentid'])){
+
+                                $stmt = $conn->prepare("SELECT * FROM `preference` WHERE `examid` = ? AND `studentid`=? ORDER BY `priority` ");
+                                $stmt->bind_param("ss" , $_POST['code'], $_POST['studentid'] );
+                                $stmt->execute();
+                                $result = $stmt->get_result();
+                            
+
+                                while ($row = $result->fetch_assoc()) {
+                                    $timestmt = $conn->prepare("SELECT * FROM `meetingtimeslots` WHERE `timeslotid` = ?");
+                                    $timestmt->bind_param("s" , $row["timeslotid"] );
+                                    $timestmt->execute();
+                                    $timeslotresult = $timestmt->get_result();
+                                    while ($Trow = $timeslotresult->fetch_assoc()) {
+                                        $timeslotscheduled = $Trow["timeslot"];
+                                        echo "<tr><td>{$timeslotscheduled}</td><td>{$row["priority"]}</td></tr>";
+                                    }
+                                }
+                            }                    
+
+                        
+                        ?>
+
+
+                    </tbody>
+                </table>
+
+                <!-- <form  action="" method="post" enctype="multipart/form-data">
+
+                    <input type="hidden"  name="studentid" value="<?php echo $_POST['studentid'] ?>">
+                    <input type="hidden"  name="examid" value="<?php echo $_POST['code'] ?>"> -->
+<!-- 
+                    <div class="mb-3 mt-5">
+                        <label for="code" class="form-label">First choose</label>
+                        <select class="form-select" name="choose1" required>
+                            <?php
+                                //echo "<option disabled selected hidden>{$studentchoose['choose1']}</option>";
+                            ?>
+                        </select>
+
+                    </div>
+                    <?php
 
 
 
+                    //$choose_num=count($mt_timeslots)>10? 10 :count($mt_timeslots);
+                    //$choose_num = $mt_choicenum;
+                    //$choose_words=["First","Second","Third","Fourth","Fifth","Sixth","Seventh","Eighth","Ninth","Tenth"];
 
-                    ?>
-
-
-
-
-
-
+                    //for ($x = 2; $x <= $choose_num; $x++) {
+                        ?>
+                        <div class="mb-3">
+                            <label for="code" class="form-label"><?php //echo $choose_words[$x-1] ?> choose</label>
+                            <select class="form-select" name="choose<?php //echo $x ?>" required>
+                                <?php
+                                    //echo "<option disabled selected hidden >".$studentchoose['choose'.$x]."</option>";
+                                ?>
+                            </select>
+                        </div>
+                        <?php
+                    //}?>
+ -->
                 </form>
 
 
