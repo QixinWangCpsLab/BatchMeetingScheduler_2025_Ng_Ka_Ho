@@ -1,0 +1,43 @@
+services:
+  # MySQL Database
+  db:
+    image: mysql:8.0
+    container_name: batch_meeting_scheduler_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword  # Change this in production
+      MYSQL_DATABASE: capstone_project
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: apppassword  # Change this in production
+    ports:
+      - "50000:3306"
+    volumes:
+      - ./db/capstone_project.sql:/docker-entrypoint-initdb.d/capstone_project.sql
+    networks:
+      - app-network
+    command: --default-authentication-plugin=mysql_native_password
+
+  # PHP Web Application
+  web:
+    build:
+      context: ./
+      dockerfile: Dockerfile.web
+    container_name: batch_meeting_scheduler_web
+    depends_on:
+      - db
+    ports:
+      - "5000:80"
+    volumes:
+      - ./web:/var/www/html
+    networks:
+      - app-network
+    environment:
+      DB_HOST: db
+      DB_PORT: 50000
+      DB_DATABASE: capstone_project
+      DB_USERNAME: appuser
+      DB_PASSWORD: apppassword
+
+networks:
+  app-network:
+    driver: bridge

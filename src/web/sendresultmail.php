@@ -1,6 +1,7 @@
 <?php
 date_default_timezone_set("Asia/Hong_Kong");
-include $_SERVER["DOCUMENT_ROOT"] . "/testwsqlnew/conn/conn.php";
+$config = require __DIR__ . '/config.php';
+require __DIR__ . '/testwsqlnew/conn/conn.php';
 require 'vendor/autoload.php';
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -28,6 +29,8 @@ $stmt->bind_param("si",$examid,$index);
 $stmt->execute();
 $result = $stmt->get_result();
 
+$mailConfig = $config['mail'];
+
 $counter = $result->num_rows;
 if ($counter >=1){
 
@@ -37,15 +40,15 @@ if ($counter >=1){
         $mail->isSMTP();
         $mail->SMTPAuth = true;
 
-        $mail->Host = "smtp.gmail.com";
-        $mail->SMTPSecure = "ssl"; //"PHPMailer::ENCRYPTION_STARTTLS";
-        $mail->Port = 465;
+        $mail->Host = $mailConfig['host'];
+        $mail->SMTPSecure = $mailConfig['encryption']; //"PHPMailer::ENCRYPTION_STARTTLS";
+        $mail->Port = $mailConfig['port'];
 
-        $mail->Username = "@gmail.com";
-        $mail->Password = "ytynmodqskpnaxof";
+        $mail->Username = $mailConfig['username'];
+        $mail->Password = $mailConfig['password'];
 
-        $mail->setFrom("@gmail.com", "do-not-reply");
-        $mail->addAddress($row["studentid"]."@gmail.com", "student");
+        $mail->setFrom($mailConfig['from_address'], $mailConfig['from_name']);
+        $mail->addAddress($row["studentid"].$mailConfig['result_domain'], "student");
 
         $mail->Subject = $subject;
         
@@ -82,15 +85,15 @@ if ($studentcount >= 1){
         $mail->isSMTP();
         $mail->SMTPAuth = true;
 
-        $mail->Host = "smtp.gmail.com";
-        $mail->SMTPSecure = "ssl"; //"PHPMailer::ENCRYPTION_STARTTLS";
-        $mail->Port = 465;
+        $mail->Host = $mailConfig['host'];
+        $mail->SMTPSecure = $mailConfig['encryption']; //"PHPMailer::ENCRYPTION_STARTTLS";
+        $mail->Port = $mailConfig['port'];
 
-        $mail->Username = "@gmail.com";
-        $mail->Password = "";
+        $mail->Username = $mailConfig['username'];
+        $mail->Password = $mailConfig['password'];
 
-        $mail->setFrom("@gmail.com", "do-not-reply");
-        $mail->addAddress($sturow["studentid"]."@gmail.com", "student");
+        $mail->setFrom($mailConfig['from_address'], $mailConfig['from_name']);
+        $mail->addAddress($sturow["studentid"].$mailConfig['result_domain'], "student");
 
         $mail->Subject = $subject;
         

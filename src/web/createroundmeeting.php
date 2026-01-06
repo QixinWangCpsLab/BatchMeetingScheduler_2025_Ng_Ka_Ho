@@ -60,7 +60,7 @@ $stmt->free_result();
 $stmt->close();
 
 $datearray = [];
-$stmt = $conn->prepare("SELECT * FROM `meetingdate` WHERE `examid` = ? ");
+$stmt = $conn->prepare("SELECT * FROM `MeetingDate` WHERE `examid` = ? ");
 
 $stmt->bind_param("s" , $_POST['examid'] );
 
@@ -102,7 +102,7 @@ $stmt->close();
             <div class="card-body" >
 
 
-                <h1 class="mb-4 text-poly">Please select time slots by your preferences</h1>
+                <h1 class="mb-4 text-poly">Create another round</h1>
                 
                 <?php 
                 //echo $_POST['studentid'];
@@ -118,13 +118,15 @@ $stmt->close();
                 <h4>Original Deadline for Input: <small class="text-secondary"><?php echo $mt_deadline ?> </small></h4>
                 <h4>Number of existing round: <small class="text-secondary"> <?php echo $mt_roundindex ?> </small></h4>
                 <br>
-                <form  action="roundform.php" id="roundform" method="post" enctype="multipart/form-data">
+                <form  action="roundform.php" id="roundform" method="post" enctype="multipart/form-data" novalidate>
 
                 
                 <br>
                 <div class="mb-3">
                     <label for="deadline" class="form-label"><h4>New deadline for Input : </h4></label>
                     <input type="datetime-local" class="form-control" id="deadline" name="deadline" required>
+                    <div class="form-text">Deadline must be in the future.</div>
+                    <div class="invalid-feedback">Please select a future deadline.</div>
                 </div>
 
                 <br>
@@ -144,6 +146,7 @@ $stmt->close();
                     <div class="col-12">
                         <h4 class="d-inline-block">Meeting day :</h4> 
                         <button type="button" id="adday" class="btn btn-poly fw-bold text-white mb-2 ms-3">Add</button>
+                        <div class="form-text">Add new dates/times only for the extra round. Start time must be earlier than end time.</div>
                     </div>
                     </div>
 
@@ -157,6 +160,7 @@ $stmt->close();
                             <div class="row">
                                 <div class="col mb-2">
                                     <input type="date" class="form-control"  id="day1date" name="day1date"  >
+                                    <div class="invalid-feedback">Enter a valid date.</div>
                                 </div>
                             </div>
                         </div>
@@ -199,6 +203,7 @@ $stmt->close();
                 <input type="hidden"  name="roundindex" value="<?php echo $mt_roundindex ?>">
                 <input type="hidden"  name="password" value="<?php echo $_POST['password']?>">
                 
+                <div class="error text-danger fw-semibold mb-2" id="error"></div>
                 <div class="d-grid">
                     <button type="submit" class="btn btn-poly fw-bold text-white" id="submitbtn" >Submit</button>
                 </div>
@@ -269,6 +274,47 @@ $stmt->close();
     // $("#submitbtn").click(function(){
     //     $("#roundform").submit();
     // });
+    function validateTimeBlocks() {
+      let valid = true;
+      const durationVal = parseInt($("#roundform input[name='duration']").val(), 10);
+      $('#daybox .card').each(function () {
+        const startInputs = $(this).find("input[name^='day'][name$='startime[]']");
+        const endInputs = $(this).find("input[name^='day'][name$='endtime[]']");
+        startInputs.each(function (idx) {
+          const startVal = $(this).val();
+          const endVal = $(endInputs[idx]).val();
+          if (startVal && endVal && startVal >= endVal) {
+            valid = false;
+          }
+          if (startVal && endVal && durationVal && (((new Date("1970-01-01T"+endVal)- new Date("1970-01-01T"+startVal)) / 60000) % durationVal !== 0)) {
+            valid = false;
+          }
+        });
+      });
+      return valid;
+    }
+
+    $("#roundform").on("submit", function(e) {
+      $("#error").text("");
+      $(".is-invalid").removeClass("is-invalid");
+      let errors = [];
+      const deadlineVal = $("#deadline").val();
+      const durationVal = parseInt($("#duration").val() || $("#roundform input[name='duration']").val(), 10);
+
+      if (!deadlineVal || new Date(deadlineVal) <= new Date()) {
+        errors.push("Deadline must be in the future.");
+        $("#deadline").addClass("is-invalid");
+      }
+
+      if (!validateTimeBlocks()) {
+        errors.push("Each time period must have a start time before its end time.");
+      }
+
+      if (errors.length) {
+        e.preventDefault();
+        $("#error").html(errors.join("<br>"));
+      }
+    });
   });
 
 </script>

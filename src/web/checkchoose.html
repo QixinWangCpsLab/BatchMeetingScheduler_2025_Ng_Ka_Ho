@@ -21,19 +21,22 @@
 
           <div class="mb-3">
             <label for="code" class="form-label">Meeting code</label>
-            <input type="text" class="form-control" id="code" name="code" required>
+            <input type="text" class="form-control" id="code" name="code" required maxlength="64" placeholder="Paste the meeting code from your teacher">
+            <div class="form-text">Codes contain letters/numbers and are case-sensitive.</div>
 
           </div>
 
           <div class="mb-3">
             <label for="studentid" class="form-label">Student ID</label>
-            <input type="text" class="form-control" id="studentid" name="studentid" required>
+            <input type="text" class="form-control" id="studentid" name="studentid" required maxlength="32" placeholder="e.g. 12345678d">
+            <div class="form-text">Use the ID provided to you; letters are case-sensitive.</div>
 
           </div>
 
           <div class="mb-3">
             <label for="stupassword" class="form-label">Password</label>
-            <input type="text" class="form-control" id="stupassword" name="stupassword" required>
+            <input type="password" class="form-control" id="stupassword" name="stupassword" required maxlength="120" placeholder="8-12 characters from your invitation email">
+            <div class="form-text">This is the student password sent in your invitation email.</div>
 
           </div>
 

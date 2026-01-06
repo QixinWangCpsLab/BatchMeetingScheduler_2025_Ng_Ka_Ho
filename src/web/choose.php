@@ -108,6 +108,10 @@ $stmt->close();
 
                 <h1 class="mb-4 text-poly">Please select time slots by your preferences</h1>
                 
+                <div class="alert alert-info">
+                    Select unique time slots in priority order. Each choice must belong to a valid date and cannot be reused.
+                </div>
+                
                 <?php 
                 // echo $_POST['studentid'];
                 // echo $stu_pass;

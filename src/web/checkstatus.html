@@ -21,13 +21,15 @@
 
           <div class="mb-3">
             <label for="code" class="form-label">Meeting code</label>
-            <input type="text" class="form-control" id="code" name="code" required>
+            <input type="text" class="form-control" id="code" name="code" required maxlength="64" placeholder="Paste the meeting code you created">
+            <div class="form-text">Meeting codes are auto-generated for each meeting and include letters/numbers.</div>
 
           </div>
 
           <div class="mb-3">
             <label for="password" class="form-label">Password</label>
-            <input type="text" class="form-control" id="password" name="password" required>
+            <input type="password" class="form-control" id="password" name="password" required maxlength="120" placeholder="Teacher edit password">
+            <div class="form-text">This is the edit password shown after meeting creation.</div>
 
           </div>
 

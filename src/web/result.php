@@ -2,10 +2,19 @@
 date_default_timezone_set("Asia/Hong_Kong");
 include $_SERVER["DOCUMENT_ROOT"] . "/testwsqlnew/conn/conn.php";
 
-
+// Add debugging to check if table exists
+$check_table = $conn->query("SHOW TABLES LIKE 'exam'");
+if ($check_table->num_rows == 0) {
+    die("Error: The 'exam' table doesn't exist in the database. Make sure your database is properly initialized.");
+}
 
 
 $stmt = $conn->prepare("SELECT * FROM `exam` WHERE `examid` = ? ");
+
+// Add error handling for prepare
+if (!$stmt) {
+    die("Prepare failed: " . $conn->error);
+}
 
 $stmt->bind_param("s" , $_GET['examid'] );
 
@@ -107,87 +116,110 @@ $result = $stmt->get_result();
 
 
 if ($result->num_rows<1){
- 
-
-        $preferencenum = $mt_datechoicenum*$mt_slotchoicenum;
-
-        
         if (time()>strtotime($mt_deadline)){
+            // Process allocations after the deadline using transactional locking to avoid double booking.
+            $examId = $_GET['examid'];
 
-            $studentidcopy=[];
-            // $timeslotsarray=[];
+            // Set a predictable isolation level for this session to avoid stale reads during allocation.
+            $conn->query('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
 
-            $stmt = $conn->prepare("SELECT * FROM `preference` WHERE `examid` = ? GROUP BY `studentid` ORDER BY `timestamp` ASC;");
+            $studentQueue = $conn->prepare("
+                SELECT p.studentid
+                FROM preference p
+                JOIN studentexammatch s ON s.examid = p.examid AND s.studentid = p.studentid
+                WHERE p.examid = ?
+                AND s.scheduled = 0
+                GROUP BY p.studentid
+                ORDER BY MIN(p.timestamp) ASC
+            ");
+            $studentQueue->bind_param("s", $examId);
+            $studentQueue->execute();
+            $studentResult = $studentQueue->get_result();
 
-            $stmt->bind_param("s" , $_GET['examid'] );
+            $preferencesStmt = $conn->prepare("
+                SELECT timeslotid
+                FROM preference
+                WHERE examid = ? AND studentid = ?
+                ORDER BY priority ASC
+            ");
 
-            $stmt->execute();
+            $lockStudentStmt = $conn->prepare("
+                SELECT scheduled
+                FROM studentexammatch
+                WHERE examid = ? AND studentid = ?
+                FOR UPDATE
+            ");
+            $lockSlotStmt = $conn->prepare("
+                SELECT scheduled
+                FROM meetingtimeslots
+                WHERE examid = ? AND timeslotid = ?
+                FOR UPDATE
+            ");
+            $insertResultStmt = $conn->prepare("
+                INSERT INTO result (examid, studentid, timeslotid, roundindex)
+                VALUES (?, ?, ?, ?)
+            ");
+            $markStudentStmt = $conn->prepare("
+                UPDATE studentexammatch
+                SET scheduled = 1
+                WHERE examid = ? AND studentid = ?
+            ");
+            $markSlotStmt = $conn->prepare("
+                UPDATE meetingtimeslots
+                SET scheduled = 1
+                WHERE examid = ? AND timeslotid = ?
+            ");
 
-            $result = $stmt->get_result();
+            while ($studentRow = $studentResult->fetch_assoc()) {
+                $studentId = $studentRow['studentid'];
 
-            while ($row = $result->fetch_assoc()) {
-                $notscheduled0 = 0;
-                $stu = $conn->prepare("SELECT * FROM `studentexammatch` WHERE `examid` = ? AND `studentid` = ? AND `scheduled` = ?");
-                $stu->bind_param("ssi" , $_GET['examid'],$row['studentid'], $notscheduled0);
-                $stu->execute();
-                $sturesult = $stu->get_result();
-                while ($sturow = $sturesult->fetch_assoc()) {
-                    array_push($studentidcopy,$row['studentid']);
+                $preferencesStmt->bind_param("ss", $examId, $studentId);
+                $preferencesStmt->execute();
+                $prefResult = $preferencesStmt->get_result();
+
+                while ($prefRow = $prefResult->fetch_assoc()) {
+                    $slotId = (int)$prefRow['timeslotid'];
+
+                    // Start an atomic allocation attempt for this student and slot.
+                    $conn->begin_transaction(MYSQLI_TRANS_START_READ_WRITE);
+
+                    $lockStudentStmt->bind_param("ss", $examId, $studentId);
+                    $lockStudentStmt->execute();
+                    $studentLockResult = $lockStudentStmt->get_result();
+                    $studentLocked = $studentLockResult->fetch_assoc();
+
+                    $lockSlotStmt->bind_param("si", $examId, $slotId);
+                    $lockSlotStmt->execute();
+                    $slotLockResult = $lockSlotStmt->get_result();
+                    $slotLocked = $slotLockResult->fetch_assoc();
+
+                    $studentAvailable = $studentLocked && (int)$studentLocked['scheduled'] === 0;
+                    $slotAvailable = $slotLocked && (int)$slotLocked['scheduled'] === 0;
+
+                    if ($studentAvailable && $slotAvailable) {
+                        $insertResultStmt->bind_param("ssii", $examId, $studentId, $slotId, $roundindex);
+                        $insertSuccess = $insertResultStmt->execute();
+
+                        if ($insertSuccess) {
+                            $markStudentStmt->bind_param("ss", $examId, $studentId);
+                            $markStudentStmt->execute();
+
+                            $markSlotStmt->bind_param("si", $examId, $slotId);
+                            $markSlotStmt->execute();
+
+                            $conn->commit();
+                            // Move to the next student once a slot is successfully reserved.
+                            break;
+                        }
+                    }
+
+                    // Either the slot/student is no longer available or insert failed due to constraint; rollback and try next preference.
+                    $conn->rollback();
                 }
             }
 
-
-            $stmt->free_result();
-            $stmt->close();
-
-
-            foreach ($studentidcopy as $y => $value){
-                $counterboo = 1;
-                $sql = "SELECT * FROM `preference` WHERE `examid` = \"{$_GET['examid']}\"  AND `studentid`= \"$value\" ORDER BY `priority` ASC ";
-                $result = $conn->query($sql);
-                
-                while ($row = $result->fetch_assoc()){
-                    for ($x = 1; $x <= $preferencenum; $x++){
-                        $notscheduled = 0;
-                        $timeselection = $conn->prepare('SELECT * FROM `meetingtimeslots` WHERE `examid` = ? AND `scheduled` = ?');
-                        $timeselection->bind_param("si", $_GET['examid'], $notscheduled);
-                        $timeselection->execute();
-                        $selectedR = $timeselection->get_result();
-
-                        while ($selectedrow = $selectedR -> fetch_assoc()){
-                            if ($selectedrow["timeslotid"] == $row["timeslotid"] && $counterboo>0){
-                                $slotid = $selectedrow['timeslotid'];
-                                // $timeslotsarray[$row['timeslotid']]=$value;
-                                
-                                $prefstmt = $conn->prepare('INSERT INTO `result` (`id`, `examid`, `studentid`, `timeslotid`,`roundindex`) VALUES (NULL, ?, ?, ?,?);');
-                                $prefstmt->bind_param("ssii", $_GET['examid'] ,$value, $slotid, $roundindex);
-                                $prefstmt->execute();
-                                
-                                $num = 1;
-                                $scheduled = $conn->prepare('UPDATE `studentexammatch` SET `scheduled` = ? WHERE `examid` = ? AND `studentid` = ?;');
-                                $scheduled->bind_param("iss", $num, $_GET['examid'] ,$value);
-                                $scheduled->execute();
-
-                                $scheduledT = $conn->prepare('UPDATE `meetingtimeslots` SET `scheduled` = ? WHERE `timeslotid` = ?;');
-                                $scheduledT->bind_param("is", $num ,$slotid);
-                                $scheduledT->execute();
-
-                                unset($studentidcopy[$y]);
-
-                                $counterboo = -1;
-                                //var_dump($counterboo);
-                                //var_dump($studentidcopy);
-                            }
-                        }
-                    }
-                }
-
-            }                 
-            
-            
-
+            $studentQueue->free_result();
         }
-        
 }
 
 
@@ -274,48 +306,41 @@ if ($result->num_rows<1){
                         <?php
 
                             if (isset($_GET['studentid'])){
-
-                                $stmt = $conn->prepare("SELECT * FROM `result` WHERE `examid` = ? AND `studentid`=?");
-                                $stmt->bind_param("ss" , $_GET['examid'], $_GET['studentid'] );
+                                $stmt = $conn->prepare("
+                                    SELECT r.studentid, m.timeslot
+                                    FROM result r
+                                    JOIN meetingtimeslots m ON m.timeslotid = r.timeslotid
+                                    WHERE r.examid = ? AND r.studentid = ? AND r.roundindex = ?
+                                ");
+                                $stmt->bind_param("ssi" , $_GET['examid'], $_GET['studentid'], $roundindex );
                                 $stmt->execute();
                                 $result = $stmt->get_result();
 
                                 while ($row = $result->fetch_assoc()) {
-                                    $timestmt = $conn->prepare("SELECT * FROM `meetingtimeslots` WHERE `timeslotid` = ?");
-                                    $timestmt->bind_param("s" , $row["timeslotid"] );
-                                    $timestmt->execute();
-                                    $timeslotresult = $timestmt->get_result();
-                                    while ($Trow = $timeslotresult->fetch_assoc()) {
-                                        $timeslotscheduled = $Trow["timeslot"];
-                                        echo "<tr><td>{$timeslotscheduled}</td><td>{$row["studentid"]}</td></tr>";
-                                    }
-                                }  
-
+                                    echo "<tr><td>{$row['timeslot']}</td><td>{$row['studentid']}</td></tr>";
+                                }
                             }
+
                             if (isset($_GET['Tpassword'])){
-                                $findslots  = $conn->prepare("SELECT * FROM `meetingtimeslots` WHERE `examid` = ?");
-                                $findslots ->bind_param("s" , $_GET['examid']);
+                                $findslots  = $conn->prepare("
+                                    SELECT m.timeslotid, m.timeslot, m.scheduled, r.studentid
+                                    FROM meetingtimeslots m
+                                    LEFT JOIN result r
+                                      ON r.examid = m.examid AND r.timeslotid = m.timeslotid AND r.roundindex = ?
+                                    WHERE m.examid = ?
+                                    ORDER BY m.timeslotid ASC
+                                ");
+                                $findslots ->bind_param("is" , $roundindex, $_GET['examid']);
                                 $findslots ->execute();
                                 $slotsR = $findslots ->get_result();
-                        
+
                                 while ($slotrow = $slotsR->fetch_assoc()) {
-                                    if ($slotrow["scheduled"] == 1){
-                                        $stmt = $conn->prepare("SELECT * FROM `result` WHERE `examid` = ?");
-                                        $stmt->bind_param("s" , $_GET['examid'] );
-                                        $stmt->execute();
-                                        $result = $stmt->get_result();
-                        
-                                        while ($row = $result->fetch_assoc()){
-                                            if ($slotrow['timeslotid'] == $row['timeslotid']){
-                                                echo "<tr><td>{$slotrow['timeslot']}</td><td>{$row['studentid']}</td></tr>";
-                                            }
-                                        }
-                                    }
-                                    else if ($slotrow["scheduled"] == 0){
+                                    if ((int)$slotrow["scheduled"] === 1 && $slotrow["studentid"]) {
+                                        echo "<tr><td>{$slotrow['timeslot']}</td><td>{$slotrow['studentid']}</td></tr>";
+                                    } else {
                                         echo "<tr><td>{$slotrow['timeslot']}</td><td>0</td></tr>";
                                     }
                                 }
-
                             }
                             
                             //     $stmt = $conn->prepare("SELECT * FROM `result` WHERE `examid` = ? ORDER BY `timeslotid`");

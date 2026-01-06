@@ -1,245 +1,386 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
   <link rel="icon" href="images/favicon.ico" />
   <title>PolyU reservation system</title>
-  <link rel="stylesheet" href="styles/bootstrap.min.css" >
-  <link rel="stylesheet" href="styles/main.css" >
+  <link rel="stylesheet" href="styles/bootstrap.min.css">
+  <link rel="stylesheet" href="styles/main.css">
 </head>
+
 <body class="bg-poly d-flex align-items-center h-100">
 
-<div class="container">
+  <div class="container">
 
-  <main class="w-100 m-auto" id="main"  >
-    <div class="card py-md-5 py-2 px-sm-2 px-md-5   my-5 w-100"  >
-      <div class="card-body" >
-        <h1 class="mb-4 text-poly">Create meeting</h1>
+    <main class="w-100 m-auto" id="main">
+      <div class="card py-md-5 py-2 px-sm-2 px-md-5   my-5 w-100">
+        <div class="card-body">
+          <h1 class="mb-4 text-poly">Create meeting</h1>
 
-        <form  action="createmeeting.php" id="register" method="post" enctype="multipart/form-data">
-          
-          
-          <div class="mb-3">
-            <label for="title" class="form-label">Meeting title</label>
-            <input type="text" class="form-control" id="title" name="title" required>
-
-          </div>
-
-          <div class="mb-3">
-            <label for="subject" class="form-label">Subject title</label>
-            <input type="text" class="form-control" id="subject" name="subject" required>
-
-          </div>
-
-          <div class="mb-3">
-            <label for="teacher" class="form-label">Teacher name</label>
-            <input type="text" class="form-control" id="teacher" name="teacher" required>
-
-          </div>
+          <form action="createmeeting.php" id="register" method="post" enctype="multipart/form-data" novalidate>
 
 
-          <div class="mb-3">
-            <label for="duration" class="form-label">Duration of each meeting (minutes)</label>
-            <input type="number" class="form-control" id="duration" name="duration" required>
+            <div class="mb-3">
+              <label for="title" class="form-label">Meeting title</label>
+              <input type="text" class="form-control" id="title" name="title" required maxlength="120" placeholder="e.g. Capstone Consultation Round 1">
+              <div class="invalid-feedback">Please enter a title (max 120 characters).</div>
+            </div>
 
-          </div>
+            <div class="mb-3">
+              <label for="subject" class="form-label">Subject title</label>
+              <input type="text" class="form-control" id="subject" name="subject" required maxlength="120" placeholder="e.g. COMP4913 Capstone">
+              <div class="invalid-feedback">Please enter the subject (max 120 characters).</div>
+            </div>
 
-          <div class="mb-3">
-            <label for="Datechoicenum" class="form-label">How many preferred days should a student choose?</label>
-            <input type="number" class="form-control" id="Datechoicenum" name="Datechoicenum" required>
-          </div>
-
-          <div class="mb-3">
-            <label for="Slotchoicenum" class="form-label">For each preferred day, how many preferred time-slots should a student choose?</label>
-            <input type="number" class="form-control" id="Slotchoicenum" name="Slotchoicenum" required>
-          </div>
-
-          <div class="mb-3">
-            <label for="deadline" class="form-label">Deadline for Input</label>
-
-                <input type="datetime-local" class="form-control" id="deadline" name="deadline" required>
+            <div class="mb-3">
+              <label for="teacher" class="form-label">Teacher name</label>
+              <input type="text" class="form-control" id="teacher" name="teacher" required maxlength="120" placeholder="e.g. Dr. Chan">
+              <div class="invalid-feedback">Please enter the teacher name (max 120 characters).</div>
+            </div>
 
 
+            <div class="mb-3">
+              <label for="duration" class="form-label">Duration of each meeting (minutes)</label>
+              <input type="number" class="form-control" id="duration" name="duration" min="1" step="1" required placeholder="Enter a positive number">
+              <div class="form-text">Must be a positive number; typical choices are 15/30/60.</div>
+              <div class="invalid-feedback">Duration must be a positive number.</div>
+            </div>
 
-          </div>
+            <div class="mb-3">
+              <label for="Datechoicenum" class="form-label">How many preferred days should a student choose?</label>
+              <input type="number" class="form-control" id="Datechoicenum" name="Datechoicenum" min="1" required>
+              <div class="invalid-feedback">Enter a positive number.</div>
+            </div>
+
+            <div class="mb-3">
+              <label for="Slotchoicenum" class="form-label">For each preferred day, how many preferred time-slots should
+                a student choose?</label>
+              <input type="number" class="form-control" id="Slotchoicenum" name="Slotchoicenum" min="1" required>
+              <div class="invalid-feedback">Enter a positive number.</div>
+            </div>
+
+            <div class="mb-3">
+              <label for="deadline" class="form-label">Deadline for Input</label>
+
+              <input type="datetime-local" class="form-control" id="deadline" name="deadline" required>
+              <div class="form-text">Deadline must be in the future.</div>
+              <div class="invalid-feedback">Please choose a deadline in the future.</div>
 
 
-          <div class="mb-3 " id="daybox">
-            <div class="row">
+            </div>
+
+
+            <div class="mb-3 " id="daybox">
+              <div class="row">
               <div class="col-12">
-                <h3 class="d-inline-block">Meeting day :</h3> 
-                <button type="button" id="adday" class="btn btn-poly fw-bold text-white mb-2 ms-3">Add</button>
-              </div>
-
-            </div>
-
-
-
-            <div class="card bg-light mx-1 my-3">
-              <div class="card-body">
-
-
-                <h5>Day 1 </h5>
-
-
-
-
-                <div class="col-12">
-                  <label for="day1date" class="form-label ">Date : </label>
-                  <div class="row">
-                    <div class="col mb-2">
-                      <input type="date" class="form-control"  id="day1date" name="day1date"  required>
-                    </div>
-                  </div>
-
-                </div>
-                <div class="col-12">
-                  <label  class="form-label fw-bold">Time Periods : </label>
-                  <button type="button" class="btn btn-poly fw-bold text-white mb-2 ms-3 addtimeslot" day="1" >Add</button>
-
-                  <div class="row">
-                    <div class="col-6">
-                      <label class="form-label ">Start time: </label>
-                      <div class="row">
-                        <div class="col mb-2">
-                          <input type="time" class="form-control" id="day1startime[]" name="day1startime[]" maxlength="100" required>
-                        </div>
-                      </div>
-
-                    </div>
-                    <div class="col-6">
-                      <label   class="form-label ">End time : </label>
-                      <div class="row">
-                        <div class="col mb-2">
-                          <input type="time" class="form-control" id=day1endtime[]  name="day1endtime[]" maxlength="100" required>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
+                  <h3 class="d-inline-block">Meeting day</h3>
+                  <button type="button" id="adday" class="btn btn-poly fw-bold text-white mb-2 ms-3">Add another day</button>
+                  <div class="form-text">Enter each date and at least one valid time period (start time must be before end time).</div>
                 </div>
 
               </div>
+
+
+
+              <div class="card bg-light mx-1 my-3">
+                <div class="card-body">
+
+
+                  <h5>Day 1 </h5>
+
+
+
+
+                  <div class="col-12">
+                    <label for="day1date" class="form-label ">Date</label>
+                    <div class="row">
+                      <div class="col mb-2">
+                        <input type="date" class="form-control" id="day1date" name="day1date" required>
+                        <div class="invalid-feedback">Select a date for Day 1.</div>
+                      </div>
+                    </div>
+
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label fw-bold">Time Periods</label>
+                    <button type="button" class="btn btn-poly fw-bold text-white mb-2 ms-3 addtimeslot"
+                      day="1">Add</button>
+
+                    <div class="row">
+                      <div class="col-6">
+                        <label class="form-label ">Start time</label>
+                        <div class="row">
+                          <div class="col mb-2">
+                            <input type="time" class="form-control" id="day1startime[]" name="day1startime[]"
+                              maxlength="100" required>
+                          </div>
+                        </div>
+
+                      </div>
+                      <div class="col-6">
+                        <label class="form-label ">End time</label>
+                        <div class="row">
+                          <div class="col mb-2">
+                            <input type="time" class="form-control" id=day1endtime[] name="day1endtime[]"
+                              maxlength="100" required>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+
+                </div>
+              </div>
+
+
+
+
             </div>
-            
+
+            <div class="mb-3">
+              <label for="studentid" class="form-label">Student ID upload</label><br>
+              <input type="file" name="importfile" id="importfile" class="form-control" accept=".xls,.xlsx,.csv"
+                required>
+              <small class="form-text text-muted">
+                <strong>Upload instructions:</strong>
+                <ul class="mb-1">
+                  <li>Accepted formats: .xlsx, .xls, or .csv (max 2 MB).</li>
+                  <li>First row should be a header row (e.g., "Student ID").</li>
+                  <li>Each subsequent row should contain one student ID in the first column.</li>
+                  <li>Example:
+                    <table class="table table-sm table-bordered mt-1" style="max-width: 250px">
+                      <tr>
+                        <th>Student ID</th>
+                      </tr>
+                      <tr>
+                        <td>12345678d</td>
+                      </tr>
+                      <tr>
+                        <td>12345679d</td>
+                      </tr>
+                      <tr>
+                        <td>12345680d</td>
+                      </tr>
+                    </table>
+                  </li>
+                </ul>
+              </small>
+              <div class="invalid-feedback">Please upload a .xlsx, .xls, or .csv file under 2 MB.</div>
+            </div>
+
+            <div class="error text-danger fw-semibold" id="error"></div>
+
+            <div class="d-grid">
+              <button type="submit" class="btn btn-poly fw-bold text-white" id="submitbtn">Submit</button>
+            </div>
+
+            <input type="hidden" id="daycount" name="daycount" value="1">
+
+          </form>
 
 
-
-          </div>
-          
-          <div class="mb-3">
-            <label for="studentid" class="form-label">Student ID </label><br>
-            <input type = "file" name="importfile" id="importfile" class="form-control" accept=".xls,.xlsx,.csv" required>
-            <!-- <textarea class="form-control" id="studentid" name="studentid" rows="3" required></textarea> -->
-          </div>
-
-          <div class ="error" id="error"></div>
-
-          <div class="d-grid">
-            <button type="submit" class="btn btn-poly fw-bold text-white" id="submitbtn" >Submit</button>
-          </div>
-
-          <input type="hidden" id="daycount" name="daycount" value="1">
-          
-        </form>
-        
-
+        </div>
       </div>
-    </div>
-  </main>
-  
-</div>
+    </main>
 
-<script src="scripts/jquery-3.6.0.min.js"></script>
-<script>
-  $(document).ready(function() {
+  </div>
 
-
-    var add_day_button = $("#adday");
-    var daycount=2;
-
-    $('#daybox').on("click", ".addtimeslot", function(e) {
-      e.preventDefault();
-
-      $(this).parent().append('<div class="row"> <div class="col"> <div class="row"> <div class="col mb-2"> <input type="time" class="form-control"   name="day'+$(this).attr("day")+'startime[]" maxlength="100" required> </div> </div> </div> <div class="col"> <div class="row"> <div class="col mb-2"> <input type="time" class="form-control"   name="day'+$(this).attr("day")+'endtime[]" maxlength="100" required> </div> </div> </div> <div class="col-auto"> <button type="button" class="btn btn-danger m-0  delete fw-bold">Delete</button> </div> </div>');
-      
-    });
+  <script src="scripts/jquery-3.6.0.min.js"></script>
+  <script>
+    $(document).ready(function () {
 
 
-    $(add_day_button).click(function (e) {
-      e.preventDefault();
+      var add_day_button = $("#adday");
+      var daycount = 2;
 
-      $(this).parent().parent().parent().append('<div class="card bg-light mx-1 my-3"> <div class="card-body"> <div class="d-flex justify-content-between"> <h5 class="card-title">Day '+daycount+'</h5> <a class="btn btn-danger  fw-bold delete " id="day'+daycount+'delete" day="'+daycount+'"   role="button">Delete</a> </div> <div class="col-12"> <label for="day'+daycount+'date" class="form-label ">Date : </label> <div class="row"> <div class="col mb-2"> <input type="date" class="form-control"  id="day'+daycount+'date" name="day'+daycount+'date"  required> </div> </div> </div> <div class="col-12"> <label  class="form-label fw-bold">Time Periods : </label> <button type="button" class="btn btn-poly fw-bold text-white mb-2 ms-3 addtimeslot" day="'+daycount+'" >Add</button> <div class="row"> <div class="col-6"> <label class="form-label ">Start time: </label> <div class="row"> <div class="col mb-2"> <input type="time" class="form-control"   name="day'+daycount+'startime[]" maxlength="100" required> </div> </div> </div> <div class="col-6"> <label   class="form-label ">End time : </label> <div class="row"> <div class="col mb-2"> <input type="time" class="form-control"   name="day'+daycount+'endtime[]" maxlength="100" required> </div> </div> </div> </div> </div> </div> </div>');
-
-      if (daycount>2){
-        $('#day'+(daycount-1)+'delete').addClass("disabled");
-      }
-
-      $('#daycount').val(daycount);
-      daycount++;
-      
-
-    });
-
-   
-
-    $('#daybox').on("click", ".delete", function(e) {
-      e.preventDefault();
-
-
-      if ( $(this).attr("day") != null){
-        $('#day'+(daycount-2)+'delete').removeClass("disabled");
-        $('#daycount').val(daycount-2);
-        daycount--;
-        $(this).parent('div').parent('div').parent('div').remove();
-      }else{
-        $(this).parent('div').parent('div').remove();
-      }
-
-
-
-    })
-
-    $('#submitbtn').click(function(e) {
-    const date = document.getElementById("Datechoicenum");
-    const form = document.getElementById("register");
-    const errorElement = document.getElementById("error");
-    const duration = document.getElementById("duration");
-    var starttime = document.getElementById("day1startime[]");
-    var endtime = document.getElementById("day1endtime[]");
-
-    form.addEventListener("submit",(e)=>{
-      let message =[];
-      
-      
-      if (date.value <= 0){
-        message.push("Date cannot be zero");
-      }
-
-      if ((duration.value <= 0) || (duration.value >60)){
-        message.push("Duration cannot be zero");
-      }
-      
-
-      if (message.length >0){
+      $('#daybox').on("click", ".addtimeslot", function (e) {
         e.preventDefault();
-        errorElement.innerHTML=message.join("<br> ");
-        //alert(starttime.value);
+
+        $(this).parent().append('<div class="row"> <div class="col"> <div class="row"> <div class="col mb-2"> <input type="time" class="form-control"   name="day' + $(this).attr("day") + 'startime[]" maxlength="100" required> </div> </div> </div> <div class="col"> <div class="row"> <div class="col mb-2"> <input type="time" class="form-control"   name="day' + $(this).attr("day") + 'endtime[]" maxlength="100" required> </div> </div> </div> <div class="col-auto"> <button type="button" class="btn btn-danger m-0  delete fw-bold">Delete</button> </div> </div>');
+
+      });
+
+
+      $(add_day_button).click(function (e) {
+        e.preventDefault();
+
+        $(this).parent().parent().parent().append('<div class="card bg-light mx-1 my-3"> <div class="card-body"> <div class="d-flex justify-content-between"> <h5 class="card-title">Day ' + daycount + '</h5> <a class="btn btn-danger  fw-bold delete " id="day' + daycount + 'delete" day="' + daycount + '"   role="button">Delete</a> </div> <div class="col-12"> <label for="day' + daycount + 'date" class="form-label ">Date : </label> <div class="row"> <div class="col mb-2"> <input type="date" class="form-control"  id="day' + daycount + 'date" name="day' + daycount + 'date"  required> </div> </div> </div> <div class="col-12"> <label  class="form-label fw-bold">Time Periods : </label> <button type="button" class="btn btn-poly fw-bold text-white mb-2 ms-3 addtimeslot" day="' + daycount + '" >Add</button> <div class="row"> <div class="col-6"> <label class="form-label ">Start time: </label> <div class="row"> <div class="col mb-2"> <input type="time" class="form-control"   name="day' + daycount + 'startime[]" maxlength="100" required> </div> </div> </div> <div class="col-6"> <label   class="form-label ">End time : </label> <div class="row"> <div class="col mb-2"> <input type="time" class="form-control"   name="day' + daycount + 'endtime[]" maxlength="100" required> </div> </div> </div> </div> </div> </div> </div>');
+
+        if (daycount > 2) {
+          $('#day' + (daycount - 1) + 'delete').addClass("disabled");
+        }
+
+        $('#daycount').val(daycount);
+        daycount++;
+
+
+      });
+
+
+
+      $('#daybox').on("click", ".delete", function (e) {
+        e.preventDefault();
+
+
+        if ($(this).attr("day") != null) {
+          $('#day' + (daycount - 2) + 'delete').removeClass("disabled");
+          $('#daycount').val(daycount - 2);
+          daycount--;
+          $(this).parent('div').parent('div').parent('div').remove();
+        } else {
+          $(this).parent('div').parent('div').remove();
+        }
+
+
+
+      })
+
+      function validateTimeBlocks() {
+        let valid = true;
+        const durationVal = parseInt($("#duration").val(), 10);
+        $('#daybox .card').each(function () {
+          const startInputs = $(this).find("input[name^='day'][name$='startime[]']");
+          const endInputs = $(this).find("input[name^='day'][name$='endtime[]']");
+          startInputs.each(function (idx) {
+            const startVal = $(this).val();
+            const endVal = $(endInputs[idx]).val();
+            if (startVal && endVal && startVal >= endVal) {
+              valid = false;
+            }
+            if (startVal && endVal && durationVal && (((new Date("1970-01-01T"+endVal)- new Date("1970-01-01T"+startVal)) / 60000) % durationVal !== 0)) {
+              valid = false;
+            }
+          });
+        });
+        return valid;
       }
-      
+
+      $('#register').on('submit', function (e) {
+        const errorElement = $("#error");
+        errorElement.text("");
+        $(".is-invalid").removeClass("is-invalid");
+
+        let errors = [];
+        const durationVal = parseInt($("#duration").val(), 10);
+        const dateChoiceVal = parseInt($("#Datechoicenum").val(), 10);
+        const slotChoiceVal = parseInt($("#Slotchoicenum").val(), 10);
+        const dayCountVal = parseInt($("#daycount").val(), 10);
+        const deadlineVal = $("#deadline").val();
+        const fileInput = document.getElementById("importfile");
+
+        function getFieldLabel(inputEl) {
+          const id = inputEl.id;
+          let label = "";
+          if (id) {
+            label = ($("label[for='" + id + "']").text() || "").trim();
+          }
+          if (!label) {
+            label = inputEl.name || inputEl.placeholder || "Field";
+          }
+          return label.replace(/[:]/g, "").trim() || "Field";
+        }
+
+        const requiredInputs = Array.from(document.querySelectorAll("#register [required]"));
+        const missingFields = [];
+        requiredInputs.forEach(function (el) {
+          const val = $(el).val();
+          if (!val || val.toString().trim() === "") {
+            $(el).addClass("is-invalid");
+            missingFields.push(getFieldLabel(el));
+          }
+        });
+        if (missingFields.length) {
+          const uniqueMissing = [...new Set(missingFields)];
+          errors.push("Please fill all required fields: " + uniqueMissing.join(", "));
+        }
+
+        if (!(durationVal > 0)) {
+          errors.push("Duration must be a positive number.");
+          $("#duration").addClass("is-invalid");
+        }
+
+        if (!(dateChoiceVal >= 1)) {
+          errors.push("Preferred day choices must be a positive number.");
+          $("#Datechoicenum").addClass("is-invalid");
+        }
+
+        if (!(slotChoiceVal >= 1)) {
+          errors.push("Time-slot choices per day must be a positive number.");
+          $("#Slotchoicenum").addClass("is-invalid");
+        }
+
+        if (dateChoiceVal > dayCountVal) {
+          errors.push("Preferred day choices cannot exceed the number of configured days.");
+          $("#Datechoicenum").addClass("is-invalid");
+        }
+
+        if (!deadlineVal || new Date(deadlineVal) <= new Date()) {
+          errors.push("Deadline must be in the future.");
+          $("#deadline").addClass("is-invalid");
+        }
+
+        if (!validateTimeBlocks()) {
+          errors.push("Each time period must have a start time before its end time and align to your duration.");
+        }
+
+        // Ensure each day has a date and at least one complete time period.
+        $('#daybox .card').each(function () {
+          const dateInput = $(this).find("input[type='date']");
+          const startInputs = $(this).find("input[name^='day'][name$='startime[]']");
+          const endInputs = $(this).find("input[name^='day'][name$='endtime[]']");
+          if (dateInput.length && (!dateInput.val() || dateInput.val().trim() === '')) {
+            errors.push("Each meeting day needs a date.");
+            dateInput.addClass("is-invalid");
+          }
+          startInputs.each(function (idx) {
+            const startVal = $(this).val();
+            const endVal = $(endInputs[idx]).val();
+            if ((startVal && !endVal) || (!startVal && endVal)) {
+              errors.push("Each time period must include both start and end times.");
+              $(this).addClass("is-invalid");
+              $(endInputs[idx]).addClass("is-invalid");
+            }
+          });
+          if (startInputs.length === 0) {
+            errors.push("Each meeting day needs at least one time period.");
+          }
+        });
+
+        if (fileInput && fileInput.files.length === 1) {
+          const file = fileInput.files[0];
+          const allowed = ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/csv', 'application/csv', 'text/plain'];
+          const extOk = file.name.match(/\.(csv|xls|xlsx)$/i);
+          if (file.size > 2 * 1024 * 1024) {
+            errors.push("Upload must be under 2 MB.");
+            $("#importfile").addClass("is-invalid");
+          }
+          if (!extOk) {
+            errors.push("Upload must be a .xlsx, .xls, or .csv file.");
+            $("#importfile").addClass("is-invalid");
+          }
+          if (file.type && allowed.indexOf(file.type) === -1 && !extOk) {
+            errors.push("Upload must be a supported spreadsheet file.");
+            $("#importfile").addClass("is-invalid");
+          }
+        }
+
+        if (errors.length) {
+          e.preventDefault();
+          errorElement.html(errors.join("<br>"));
+        }
+      });
+
     })
 
-    
-    })
-
-  })
 
 
-
-</script>
+  </script>
 
 
 
 </body>
+
 </html>

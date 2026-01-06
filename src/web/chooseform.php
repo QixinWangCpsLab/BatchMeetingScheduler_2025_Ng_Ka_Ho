@@ -2,127 +2,120 @@
 date_default_timezone_set("Asia/Hong_Kong");
 include $_SERVER["DOCUMENT_ROOT"] . "/testwsqlnew/conn/conn.php";
 
-
-
-
-
-$stmt = $conn->prepare("SELECT * FROM `exam` WHERE `examid` = ? ");
-
-
-$stmt->bind_param("s" , $_POST['examid'] );
-
-$stmt->execute();
-
-$result = $stmt->get_result();
-
-if ($result->num_rows==1){
-
-    while ($row = $result->fetch_assoc()) {
-
-        //$mt_studentid = json_decode($row['studentid'], true);
-        //$mt_timeslots=json_decode($row['timeslots'], true);
-
-        //$timeslotsnum=count($mt_timeslots);
-
-        $mt_deadline = $row['deadline'];
-        $datenum = $row['datechoicenum'];
-        $timeslotsnum = $row['slotchoicenum'];
-
-
-
-
-        $Astmt = $conn->prepare("SELECT `password` FROM `studentexammatch` WHERE `examid` = ? AND `studentid` = ?" );
-        $Astmt->bind_param("ss" , $_POST['examid'], $_POST['studentid']);
-        $Astmt->execute();
-        $Aresult = $Astmt->get_result();
-        
-        if ($Aresult->num_rows==1){
-            while ($Arow = $Aresult->fetch_assoc()) {
-                $stu_pass = $Arow['password'];
-                if ($_POST['stupassword'] == $stu_pass){
-                    if (time()>strtotime($mt_deadline)){
-                        header('Location: result.php?examid='.$_POST['examid']);
-                        die();
-
-                    }
-                }
-            }
-
-        }else{
-            
-            
-            
-            header('Location: index.html');
-            die();
-        }
-
-    }
-
-
-
-}else{
-    header('Location: index.html');
-    die();
+function failAndExit(string $message): void {
+    http_response_code(400);
+    echo "<script>alert('".addslashes($message)."');window.history.back();</script>";
+    exit;
 }
 
-//$stmt->free_result();
+// Use a predictable isolation level for concurrent submissions.
+$conn->query('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
 
+$examId = $_POST['examid'] ?? '';
+$studentId = trim($_POST['studentid'] ?? '');
+$studentPassword = $_POST['stupassword'] ?? '';
+$timestamp = $_POST['timestamp'] ?? '';
 
-
-
-
-
-
-
-
-
-
-
-$prefstmt = $conn->prepare("SELECT * FROM `preference` WHERE `examid` = ? AND `studentid` = ? ");
-
-
-$prefstmt->bind_param("ss" , $_POST['examid'] ,$_POST['studentid'] );
-
-$prefstmt->execute();
-
-$prefresult = $prefstmt->get_result();
-
-$total = $datenum*$timeslotsnum;
-
-
-if ($prefresult->num_rows>0){
-
-    //$row = $prefresult->fetch_assoc();
-    //$existid=$row['id'];
-    $prefstmt->free_result();
-    $prefstmt->close();
-    
-    for ($y = 1; $y <= $total; $y++){
-    $prefstmt = $conn->prepare("UPDATE `preference` SET `timestamp` = ?, `timeslotid` = ? WHERE `examid` = ? AND `studentid` = ? AND `priority` = ?");
-    $prefstmt->bind_param("sissi", $_POST['timestamp'], $_POST['choose'.$y], $_POST['examid'],  $_POST['studentid'], $y);
-    $prefstmt->execute();
-    $prefstmt->close();
-    }
-    
-    header('Location: sortsequence.php?examid='.$_POST['examid'].'&studentid='.$_POST['studentid']);
-
-}else{
-    $prefstmt->free_result();
-    $prefstmt->close();
-
-    for ($x = 1; $x <= $total; $x++){
-    $prefstmt = $conn->prepare('INSERT INTO `preference` (`id`, `examid`, `studentid`, `timestamp`, `timeslotid`, `priority`) VALUES (NULL, ?, ?, ?, ?, ?);');
-    $prefstmt->bind_param("sssii", $_POST['examid'],  $_POST['studentid'] ,$_POST['timestamp'], $_POST['choose'.$x], $x);
-    $prefstmt->execute();
-    $prefstmt->close();
-    }
-    header('Location: sortsequence.php?examid='.$_POST['examid'].'&studentid='.$_POST['studentid']);
-    //header('Location: sortsequence.php');
+if ($examId === '' || $studentId === '' || $studentPassword === '') {
+    failAndExit("Missing required information. Please fill in all fields.");
 }
 
+$examStmt = $conn->prepare("SELECT `deadline`, `datechoicenum`, `slotchoicenum` FROM `exam` WHERE `examid` = ?");
+$examStmt->bind_param("s", $examId);
+$examStmt->execute();
+$examResult = $examStmt->get_result();
 
-$stmt->close();
+if ($examResult->num_rows !== 1) {
+    failAndExit("Meeting not found.");
+}
 
+$exam = $examResult->fetch_assoc();
+$mt_deadline = $exam['deadline'];
+$datenum = (int)$exam['datechoicenum'];
+$timeslotsnum = (int)$exam['slotchoicenum'];
 
+if (time() > strtotime($mt_deadline)) {
+    failAndExit("The selection deadline has passed.");
+}
 
+$studentPassStmt = $conn->prepare("SELECT `password` FROM `studentexammatch` WHERE `examid` = ? AND `studentid` = ?");
+$studentPassStmt->bind_param("ss", $examId, $studentId);
+$studentPassStmt->execute();
+$studentPassResult = $studentPassStmt->get_result();
+
+if ($studentPassResult->num_rows !== 1) {
+    failAndExit("Student is not registered for this meeting.");
+}
+
+$passwordRow = $studentPassResult->fetch_assoc();
+if ($studentPassword !== $passwordRow['password']) {
+    failAndExit("Incorrect password.");
+}
+
+$total = $datenum * $timeslotsnum;
+if ($total < 1) {
+    failAndExit("No time slots configured for this meeting.");
+}
+
+$selectedTimeslots = [];
+for ($priority = 1; $priority <= $total; $priority++) {
+    $key = 'choose'.$priority;
+    if (!isset($_POST[$key]) || !is_numeric($_POST[$key])) {
+        failAndExit("Missing selection for priority {$priority}.");
+    }
+    $selectedTimeslots[$priority] = (int)$_POST[$key];
+    if ($selectedTimeslots[$priority] <= 0) {
+        failAndExit("Invalid selection for priority {$priority}.");
+    }
+}
+
+// Ensure no duplicate slot choices.
+if (count(array_unique($selectedTimeslots)) !== count($selectedTimeslots)) {
+    failAndExit("Duplicate time-slot selections detected. Please choose unique slots.");
+}
+
+// Validate each timeslot belongs to this exam and is available.
+$slotCheckStmt = $conn->prepare("SELECT `scheduled` FROM `meetingtimeslots` WHERE `examid` = ? AND `timeslotid` = ?");
+foreach ($selectedTimeslots as $priority => $slotId) {
+    $slotCheckStmt->bind_param("si", $examId, $slotId);
+    $slotCheckStmt->execute();
+    $slotCheckResult = $slotCheckStmt->get_result();
+    if ($slotCheckResult->num_rows !== 1) {
+        failAndExit("Selected time slot #{$priority} is not valid for this meeting.");
+    }
+    $slotRow = $slotCheckResult->fetch_assoc();
+    if ((int)$slotRow['scheduled'] !== 0) {
+        failAndExit("Selected time slot #{$priority} is already scheduled.");
+    }
+}
+
+$prefExistsStmt = $conn->prepare("SELECT 1 FROM `preference` WHERE `examid` = ? AND `studentid` = ? LIMIT 1");
+$prefExistsStmt->bind_param("ss", $examId, $studentId);
+$prefExistsStmt->execute();
+$prefExists = $prefExistsStmt->get_result()->num_rows > 0;
+
+$cleanTimestamp = ctype_digit((string)$timestamp) ? $timestamp : time();
+
+// Batch the preference writes in one transaction to reduce round trips and keep the set consistent.
+$conn->begin_transaction(MYSQLI_TRANS_START_READ_WRITE);
+
+if ($prefExists) {
+    $updatePref = $conn->prepare("UPDATE `preference` SET `timestamp` = ?, `timeslotid` = ? WHERE `examid` = ? AND `studentid` = ? AND `priority` = ?");
+    for ($priority = 1; $priority <= $total; $priority++) {
+        $updatePref->bind_param("sissi", $cleanTimestamp, $selectedTimeslots[$priority], $examId, $studentId, $priority);
+        $updatePref->execute();
+    }
+    $updatePref->close();
+} else {
+    $insertPref = $conn->prepare("INSERT INTO `preference` (`examid`, `studentid`, `timestamp`, `timeslotid`, `priority`) VALUES (?, ?, ?, ?, ?)");
+    for ($priority = 1; $priority <= $total; $priority++) {
+        $insertPref->bind_param("sssii", $examId, $studentId, $cleanTimestamp, $selectedTimeslots[$priority], $priority);
+        $insertPref->execute();
+    }
+    $insertPref->close();
+}
+
+$conn->commit();
+
+header('Location: sortsequence.php?examid='.$examId.'&studentid='.$studentId);
 ?>
