@@ -15,32 +15,48 @@ while ($row = $result->fetch_assoc()) {
 $stmt -> free_result();
 $stmt -> close();
 
-$timeslotsarray = [];
-
-
-
 $scheduled = 1;
 $notscheduled = 0;
 
-$findslots = $conn->prepare("SELECT * FROM `meetingtimeslots` WHERE `examid` = ? ");
-
+// Fetch all slots for this exam.
+$findslots = $conn->prepare("SELECT timeslotid, scheduled FROM `meetingtimeslots` WHERE `examid` = ? ");
 $findslots->bind_param("s" , $_POST['examid'] );
-
 $findslots->execute();
-
 $slotsR = $findslots->get_result();
-
-
+$slots = [];
 while ($slotrow = $slotsR -> fetch_assoc()){
+    $slots[] = $slotrow;
+}
+
+$assignments = [];
+foreach ($slots as $slotrow) {
+    $slotid = $slotrow['timeslotid'];
+    $assignments[$slotid] = isset($_POST[$slotid]) ? trim($_POST[$slotid]) : "0";
+}
+
+// Detect duplicate student assignments across timeslots.
+$seenStudents = [];
+foreach ($assignments as $slotId => $studentId) {
+    if ($studentId !== "0" && $studentId !== "") {
+        if (isset($seenStudents[$studentId])) {
+            echo "<script>alert('Duplicate assignment detected: student {$studentId} is assigned to multiple timeslots. Please ensure one slot per student.'); history.back();</script>";
+            exit;
+        }
+        $seenStudents[$studentId] = true;
+    }
+}
+
+$conn->begin_transaction(MYSQLI_TRANS_START_READ_WRITE);
+
+foreach ($slots as $slotrow){
 
     $slotid = $slotrow['timeslotid'];
-    array_push($timeslotsarray,$_POST[$slotid]);
+    $postedStudent = $assignments[$slotid];
     
-    if ($_POST[$slotid] == "0"){
+    if ($postedStudent === "0" || $postedStudent === ""){
         if ($slotrow["scheduled"] == 1){
-            //echo '<script>alert("notscheduled")</script>';
-            $stmt = $conn->prepare("SELECT * FROM `result` WHERE `examid` = ? AND `timeslotid` = ?");
-            $stmt->bind_param("si" , $_POST['examid'], $slotid );
+            $stmt = $conn->prepare("SELECT studentid FROM `result` WHERE `examid` = ? AND `timeslotid` = ? AND `roundindex` = ?");
+            $stmt->bind_param("sii" , $_POST['examid'], $slotid, $roundindex );
             $stmt->execute();
             $result = $stmt->get_result();
 
@@ -52,60 +68,62 @@ while ($slotrow = $slotsR -> fetch_assoc()){
                 $update->close();
                 
                 while ($row = $result -> fetch_assoc()){
-                    if($slotrow["timeslotid"] == $row["timeslotid"]){
-                        $stuupdate = $conn->prepare("UPDATE `studentexammatch` SET `scheduled` = ? WHERE `examid` = ? AND `studentid` = ?");
-                        $stuupdate->bind_param("iss", $notscheduled, $_POST['examid'], $row["studentid"]);
-                        $stuupdate->execute();
-                        $stuupdate->close();
-                    }
+                    $stuupdate = $conn->prepare("UPDATE `studentexammatch` SET `scheduled` = ? WHERE `examid` = ? AND `studentid` = ?");
+                    $stuupdate->bind_param("iss", $notscheduled, $_POST['examid'], $row["studentid"]);
+                    $stuupdate->execute();
+                    $stuupdate->close();
                 }
 
-                $delete = $conn->prepare("DELETE FROM `result` WHERE `examid` = ? AND `timeslotid` = ?");
-                $delete->bind_param("si", $_POST['examid'], $slotid);
+                $delete = $conn->prepare("DELETE FROM `result` WHERE `examid` = ? AND `timeslotid` = ? AND `roundindex` = ?");
+                $delete->bind_param("sii", $_POST['examid'], $slotid, $roundindex);
                 $delete->execute();
                 $delete->close();
             
             }
 
-            //header('Location: result.php?examid='.$_POST['examid'].'&Tpassword='.$_POST['password'].'&edit');
-            
         }
         
 
     }else{
+        // Clear any previous slot this student had in this exam/round to prevent ghost assignments.
+        $clearOtherSlots = $conn->prepare("SELECT timeslotid FROM `result` WHERE `examid` = ? AND `studentid` = ? AND `roundindex` = ? AND `timeslotid` <> ?");
+        $clearOtherSlots->bind_param("ssii", $_POST['examid'], $postedStudent, $roundindex, $slotid);
+        $clearOtherSlots->execute();
+        $otherSlotsResult = $clearOtherSlots->get_result();
+        while ($other = $otherSlotsResult->fetch_assoc()) {
+            $otherSlotId = (int)$other['timeslotid'];
+            $conn->query("UPDATE `meetingtimeslots` SET `scheduled` = {$notscheduled} WHERE `examid` = '" . $conn->real_escape_string($_POST['examid']) . "' AND `timeslotid` = {$otherSlotId}");
+            $conn->query("DELETE FROM `result` WHERE `examid` = '" . $conn->real_escape_string($_POST['examid']) . "' AND `timeslotid` = {$otherSlotId} AND `roundindex` = {$roundindex}");
+        }
+        $clearOtherSlots->close();
+
         if ($slotrow["scheduled"] == 1){
-            //echo '<script>alert("Can IN")</script>';
-            $stmt = $conn->prepare("SELECT * FROM `result` WHERE `examid` = ? AND `timeslotid` = ?");
-            $stmt->bind_param("si" , $_POST['examid'], $slotid );
+            $stmt = $conn->prepare("SELECT studentid FROM `result` WHERE `examid` = ? AND `timeslotid` = ? AND `roundindex` = ?");
+            $stmt->bind_param("sii" , $_POST['examid'], $slotid, $roundindex );
             $stmt->execute();
             $result = $stmt->get_result();
 
             while ($row = $result -> fetch_assoc()){
-               if($slotrow["timeslotid"] == $row["timeslotid"]){
-                   $notstu = $conn->prepare("UPDATE `studentexammatch` SET `scheduled` = ? WHERE `examid` = ? AND `studentid` = ?");
-                   $notstu->bind_param("iss", $notscheduled, $_POST['examid'], $row["studentid"]);
-                   $notstu->execute();
-                   $notstu->close();
-               }
+               $notstu = $conn->prepare("UPDATE `studentexammatch` SET `scheduled` = ? WHERE `examid` = ? AND `studentid` = ?");
+               $notstu->bind_param("iss", $notscheduled, $_POST['examid'], $row["studentid"]);
+               $notstu->execute();
+               $notstu->close();
             }
             
-            $update = $conn->prepare("UPDATE `result` SET `studentid` = ? WHERE `examid` = ? AND `timeslotid` = ?");
-            $update->bind_param("ssi", $_POST[$slotid], $_POST['examid'], $slotid);
+            $update = $conn->prepare("UPDATE `result` SET `studentid` = ? WHERE `examid` = ? AND `timeslotid` = ? AND `roundindex` = ?");
+            $update->bind_param("ssii", $postedStudent, $_POST['examid'], $slotid, $roundindex);
             $update->execute();
             $update->close();
-            //}
 
             $stuupdate = $conn->prepare("UPDATE `studentexammatch` SET `scheduled` = ? WHERE `examid` = ? AND `studentid` = ?");
-            $stuupdate->bind_param("iss", $scheduled, $_POST['examid'], $_POST[$slotid]);
+            $stuupdate->bind_param("iss", $scheduled, $_POST['examid'], $postedStudent);
             $stuupdate->execute();
             $stuupdate->close();
-            //header('Location: result.php?examid='.$_POST['examid'].'&Tpassword='.$_POST['password'].'&edit');
 
         }else{
-            //echo '<script>alert("Can IN")</script>';
 
             $update = $conn->prepare("INSERT INTO `result` (`id`, `examid`, `studentid`, `timeslotid`, `roundindex`) VALUES (NULL, ?, ?, ?, ?);");
-            $update->bind_param("ssii", $_POST['examid'], $_POST[$slotid], $slotid, $roundindex);
+            $update->bind_param("ssii", $_POST['examid'], $postedStudent, $slotid, $roundindex);
             $update->execute();
             $update->close();
 
@@ -115,20 +133,16 @@ while ($slotrow = $slotsR -> fetch_assoc()){
             $slotupdate->close();
 
             $stuupdate = $conn->prepare("UPDATE `studentexammatch` SET `scheduled` = ? WHERE `examid` = ? AND `studentid` = ?");
-            $stuupdate->bind_param("iss", $scheduled, $_POST['examid'], $_POST[$slotid]);
+            $stuupdate->bind_param("iss", $scheduled, $_POST['examid'], $postedStudent);
             $stuupdate->execute();
             $stuupdate->close();
-            //header('Location: result.php?examid='.$_POST['examid'].'&Tpassword='.$_POST['password'].'&edit');
         }
         
-
-        
-
     }
         
 }
 
-//var_dump($timeslotsarray);
+$conn->commit();
 
 header('Location: result.php?examid='.$_POST['examid'].'&Tpassword='.$_POST['password'].'&edit');
 

@@ -96,7 +96,8 @@ else{
                 <h4>Deadline for Input: <small class="text-secondary"> <?php echo $mt_deadline ?> </small></h4>
                 <h4>Meeting code: <small class="text-secondary"> <?php echo $_GET['examid'] ?> </small></h4>
 
-                <form action="editform.php" method="post" enctype="multipart/form-data">
+                <p class="text-muted">Tip: Each student should be assigned to at most one timeslot. Use "0" to clear a slot.</p>
+                <form action="editform.php" id="edit-form" method="post" enctype="multipart/form-data" novalidate>
 
                 <table class="table mt-5">
                     <thead>
@@ -135,7 +136,7 @@ else{
                                     echo "<tr>
                                                 <td>{$slotrow['timeslot']}</td>
                                                 <td>
-                                                    <select class=\"form-select\" name = '{$row['timeslotid']}' >
+                                                    <select class=\"form-select assign-select\" name = '{$row['timeslotid']}' >
                                                     <option selected hidden value='{$row['studentid']}'> {$row['studentid']} </option>
                                           ";
 
@@ -153,7 +154,7 @@ else{
                             echo "<tr>
                                         <td>{$slotrow['timeslot']}</td>
                                         <td>
-                                            <select class=\"form-select\" name = '{$slotrow['timeslotid']}' >
+                                            <select class=\"form-select assign-select\" name = '{$slotrow['timeslotid']}' >
                                             <option selected hidden value='0'> 0 </option>
                                   ";
 
@@ -206,7 +207,27 @@ else{
 </div>
 
 
-
+<script src="scripts/jquery-3.6.0.min.js"></script>
+<script>
+  $("#edit-form").on("submit", function(e) {
+    var seen = {};
+    var duplicate = null;
+    $(".assign-select").each(function() {
+      var val = $(this).val();
+      if (val && val !== "0") {
+        if (seen[val]) {
+          duplicate = val;
+        } else {
+          seen[val] = true;
+        }
+      }
+    });
+    if (duplicate) {
+      e.preventDefault();
+      alert("Duplicate assignment detected: student " + duplicate + " is assigned to multiple timeslots. Please assign each student to only one slot.");
+    }
+  });
+</script>
 
 </body>
 </html>
