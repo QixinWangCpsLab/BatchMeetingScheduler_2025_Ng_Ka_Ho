@@ -68,6 +68,9 @@ while (true) {
             case 'send_exam_invite':
                 sendExamInvite($payload, $mailConfig, $appConfig);
                 break;
+            case 'send_result_notice':
+                sendResultNotice($payload, $mailConfig, $appConfig);
+                break;
             case 'parse_sheet':
                 // Placeholder: implement spreadsheet parsing if/when needed.
                 throw new RuntimeException('parse_sheet handler not implemented');
@@ -129,6 +132,38 @@ function sendExamInvite(array $payload, array $mailConfig, array $appConfig): vo
     $mail->Password = $mailConfig['password'];
     $mail->setFrom($mailConfig['from_address'], $mailConfig['from_name']);
     $mail->addAddress($payload['studentid'] . $mailConfig['student_domain'], "student");
+    $mail->Subject = $payload['subject'];
+    $mail->Body = $message;
+    $mail->send();
+}
+
+function sendResultNotice(array $payload, array $mailConfig, array $appConfig): void
+{
+    $required = ['examid', 'studentid', 'timeslot', 'allocated', 'subject'];
+    foreach ($required as $key) {
+        if (!array_key_exists($key, $payload)) {
+            throw new InvalidArgumentException("Missing payload key: {$key}");
+        }
+    }
+
+    $message = "The following would be the timeslot allocation result:\n\n";
+    $message .= "Meeting Code: {$payload['examid']}\n";
+    $message .= "Student ID: {$payload['studentid']}\n";
+    $message .= "Allocated Timeslot: {$payload['timeslot']}";
+    if (!$payload['allocated']) {
+        $message .= "\nYou may need to wait for another round allocation.";
+    }
+
+    $mail = new PHPMailer(true);
+    $mail->isSMTP();
+    $mail->SMTPAuth = true;
+    $mail->Host = $mailConfig['host'];
+    $mail->SMTPSecure = $mailConfig['encryption'];
+    $mail->Port = $mailConfig['port'];
+    $mail->Username = $mailConfig['username'];
+    $mail->Password = $mailConfig['password'];
+    $mail->setFrom($mailConfig['from_address'], $mailConfig['from_name']);
+    $mail->addAddress($payload['studentid'] . $mailConfig['result_domain'], "student");
     $mail->Subject = $payload['subject'];
     $mail->Body = $message;
     $mail->send();

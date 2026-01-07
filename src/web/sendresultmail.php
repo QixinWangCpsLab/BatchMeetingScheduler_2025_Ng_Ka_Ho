@@ -4,114 +4,103 @@ $config = require __DIR__ . '/config.php';
 require __DIR__ . '/testwsqlnew/conn/conn.php';
 require 'vendor/autoload.php';
 
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\SMTP;
-use PHPMailer\PHPMailer\Exception;
-
 $examid = $_GET['examid'];
 $index = $_GET['index'];
-$subject = "Meeting Result (".$_GET['title'].")";
-$message = "The following would be the timeslot allocation result:"."\n\n";
-$message = $message."Meeting Code: ";
+$title = isset($_GET['title']) ? $_GET['title'] : '';
+$subject = "Meeting Result (" . $title . ")";
 $notscheduled = 0;
 
-$studentstmt = $conn->prepare("SELECT * FROM `studentexammatch` WHERE `examid` = ? AND `scheduled` = ?");
+$studentstmt = $conn->prepare("SELECT `studentid` FROM `studentexammatch` WHERE `examid` = ? AND `scheduled` = ?");
 $studentstmt->bind_param("si",$examid, $notscheduled);
 $studentstmt->execute();
 $studentresult = $studentstmt->get_result();
-$studentcount = $studentresult -> num_rows;
 
-$stmt = $conn->prepare("SELECT * FROM `result` WHERE `examid` = ? AND `roundindex` = ?");
-$stmt->bind_param("si",$examid,$index);
+$stmt = $conn->prepare("
+    SELECT r.studentid, m.timeslot
+    FROM result r
+    JOIN meetingtimeslots m ON m.timeslotid = r.timeslotid
+    WHERE r.examid = ? AND r.roundindex = ?
+");
+$stmt->bind_param("si", $examid, $index);
 $stmt->execute();
 $result = $stmt->get_result();
 
-$mailConfig = $config['mail'];
+$jobsQueued = 0;
+if ($result->num_rows >= 1) {
+    $insertJob = $conn->prepare("
+        INSERT INTO job_queue (type, payload, status, available_at)
+        VALUES ('send_result_notice', ?, 'pending', NOW())
+    ");
 
-$counter = $result->num_rows;
-if ($counter >=1){
-
-    while ($row = $result->fetch_assoc()){
-        $mail = new PHPMailer(true);
-
-        $mail->isSMTP();
-        $mail->SMTPAuth = true;
-
-        $mail->Host = $mailConfig['host'];
-        $mail->SMTPSecure = $mailConfig['encryption']; //"PHPMailer::ENCRYPTION_STARTTLS";
-        $mail->Port = $mailConfig['port'];
-
-        $mail->Username = $mailConfig['username'];
-        $mail->Password = $mailConfig['password'];
-
-        $mail->setFrom($mailConfig['from_address'], $mailConfig['from_name']);
-        $mail->addAddress($row["studentid"].$mailConfig['result_domain'], "student");
-
-        $mail->Subject = $subject;
-        
-        //while ($row = $result -> fetch_assoc()){
-            //if ($row["studentid"]== "19065597D"){
-        $message=$message.$row["examid"]."\n";
-        $message=$message."Student ID:".$row["studentid"]."\n";
-
-        $timestmt = $conn->prepare("SELECT * FROM `meetingtimeslots` WHERE `examid` = ?");
-        $timestmt->bind_param("s",$examid);
-        $timestmt->execute();
-        $tresult = $timestmt->get_result();
-        while ($trow = $tresult->fetch_assoc()){
-            if ($row["timeslotid"]==$trow["timeslotid"]){
-                $message=$message."Allocated Timeslot: ".$trow["timeslot"];
-            }
-        }
-        //}
-        
-        $mail->Body = $message;
-
-        $mail->send();
-
-        $message = "The following would be the timeslot allocation result:"."\n\n";
-        $message = $message."Meeting Code: ";
+    while ($row = $result->fetch_assoc()) {
+        $payload = json_encode([
+            'examid' => $examid,
+            'studentid' => $row['studentid'],
+            'timeslot' => $row['timeslot'],
+            'allocated' => true,
+            'subject' => $subject,
+            'title' => $title,
+        ]);
+        $insertJob->bind_param("s", $payload);
+        $insertJob->execute();
+        $jobsQueued++;
     }
-    
+    $insertJob->close();
 }
 
-if ($studentcount >= 1){
-    while ($sturow = $studentresult->fetch_assoc()){
-        $mail = new PHPMailer(true);
+if ($studentresult->num_rows >= 1) {
+    $insertJob = $conn->prepare("
+        INSERT INTO job_queue (type, payload, status, available_at)
+        VALUES ('send_result_notice', ?, 'pending', NOW())
+    ");
 
-        $mail->isSMTP();
-        $mail->SMTPAuth = true;
-
-        $mail->Host = $mailConfig['host'];
-        $mail->SMTPSecure = $mailConfig['encryption']; //"PHPMailer::ENCRYPTION_STARTTLS";
-        $mail->Port = $mailConfig['port'];
-
-        $mail->Username = $mailConfig['username'];
-        $mail->Password = $mailConfig['password'];
-
-        $mail->setFrom($mailConfig['from_address'], $mailConfig['from_name']);
-        $mail->addAddress($sturow["studentid"].$mailConfig['result_domain'], "student");
-
-        $mail->Subject = $subject;
-        
-        //while ($row = $result -> fetch_assoc()){
-            //if ($row["studentid"]== "19065597D"){
-                $message=$message.$sturow["examid"]."\n";
-                $message=$message."Student ID:".$sturow["studentid"]."\n";
-                $message=$message."Allocated Timeslot: 0"."\n"."You may need to wait for another round allocation.";
-            //}
-        //}
-        
-        $mail->Body = $message;
-
-        $mail->send();
-
-        $message = "The following would be the timeslot allocation result:"."\n\n";
-        $message = $message."Meeting Code: ";
+    while ($sturow = $studentresult->fetch_assoc()) {
+        $payload = json_encode([
+            'examid' => $examid,
+            'studentid' => $sturow['studentid'],
+            'timeslot' => '0',
+            'allocated' => false,
+            'subject' => $subject,
+            'title' => $title,
+        ]);
+        $insertJob->bind_param("s", $payload);
+        $insertJob->execute();
+        $jobsQueued++;
     }
+    $insertJob->close();
+}
+
+if ($jobsQueued > 0) {
+    kickWorkerAsync(__DIR__ . '/queue_worker.php');
+}
+
+function kickWorkerAsync(string $workerPath, ?int $limit = null): bool
+{
+    $php = PHP_BINARY ? escapeshellarg(PHP_BINARY) : 'php';
+    $cmd = $php . ' ' . escapeshellarg($workerPath);
+    if ($limit !== null && $limit > 0) {
+        $cmd .= ' --limit=' . (int)$limit;
+    }
+
+    if (function_exists('popen')) {
+        $handle = @popen($cmd . ' > /dev/null 2>&1 &', 'r');
+        if ($handle !== false) {
+            @pclose($handle);
+            return true;
+        }
+    }
+
+    if (function_exists('shell_exec')) {
+        @shell_exec($cmd . ' > /dev/null 2>&1 &');
+        return true;
+    }
+
+    if ($limit === null || $limit > 0) {
+        @exec($cmd);
+        return true;
+    }
+
+    return false;
 }
 
 ?>
@@ -133,7 +122,10 @@ if ($studentcount >= 1){
   <main class="w-100 m-auto" id="main"  >
     <div class="card py-md-5 py-2 px-sm-2 px-md-5   my-5 w-100"  >
       <div class="card-body" >
-        <h1 class="mb-4 text-poly">Your mails have been successfully sent! </h1>
+        <h1 class="mb-4 text-poly">Emails queued for delivery</h1>
+        <p class="lead">
+          We queued result emails<?php echo $jobsQueued ? " ({$jobsQueued})" : ""; ?>; they will be delivered in the background.
+        </p>
 
 
 
