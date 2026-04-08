@@ -1,4 +1,6 @@
 <?php
+// Preference submission endpoint.
+// This file authenticates the student, validates the selected ranking set, and writes the full preference batch transactionally.
 date_default_timezone_set("Asia/Hong_Kong");
 include $_SERVER["DOCUMENT_ROOT"] . "/testwsqlnew/conn/conn.php";
 
@@ -58,6 +60,7 @@ if ($total < 1) {
 }
 
 $selectedTimeslots = [];
+// The UI generates a fixed number of ranked slot inputs: date count * slot count per date.
 for ($priority = 1; $priority <= $total; $priority++) {
     $key = 'choose'.$priority;
     if (!isset($_POST[$key]) || !is_numeric($_POST[$key])) {
@@ -96,7 +99,7 @@ $prefExists = $prefExistsStmt->get_result()->num_rows > 0;
 
 $cleanTimestamp = ctype_digit((string)$timestamp) ? $timestamp : time();
 
-// Batch the preference writes in one transaction to reduce round trips and keep the set consistent.
+// Store the whole preference ranking as one unit so students do not end up with a partially updated submission.
 $conn->begin_transaction(MYSQLI_TRANS_START_READ_WRITE);
 
 if ($prefExists) {

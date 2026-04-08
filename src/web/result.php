@@ -1,4 +1,5 @@
 <?php
+// Result page and allocation trigger.
 date_default_timezone_set("Asia/Hong_Kong");
 include $_SERVER["DOCUMENT_ROOT"] . "/testwsqlnew/conn/conn.php";
 
@@ -170,6 +171,7 @@ if ($result->num_rows<1){
                 WHERE examid = ? AND timeslotid = ?
             ");
 
+            // Students are processed in timestamp order so earlier submissions get first chance at their ranked preferences.
             while ($studentRow = $studentResult->fetch_assoc()) {
                 $studentId = $studentRow['studentid'];
 
