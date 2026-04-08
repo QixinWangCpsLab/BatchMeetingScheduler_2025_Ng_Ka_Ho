@@ -5,6 +5,9 @@
             "Clari\\Testwsqlnew\\": "src/"
         }
     },
+    "scripts": {
+        "test:integration": "php tests/run_integration.php"
+    },
     "require": {
         "phpoffice/phpspreadsheet": "^1.26",
         "phpmailer/phpmailer": "^6.8"

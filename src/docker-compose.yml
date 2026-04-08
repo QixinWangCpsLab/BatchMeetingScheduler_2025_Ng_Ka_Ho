@@ -33,7 +33,6 @@ services:
       - app-network
     environment:
       DB_HOST: db
-      DB_PORT: 50000
       DB_DATABASE: capstone_project
       DB_USERNAME: appuser
       DB_PASSWORD: apppassword

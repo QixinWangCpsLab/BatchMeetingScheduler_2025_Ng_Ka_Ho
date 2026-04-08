@@ -180,6 +180,23 @@ docker compose exec web php queue_worker.php
 
 Run from `/var/www/html` inside the container, or specify the full path if you change directories.
 
+## Integration Tests
+
+The repository now includes a lightweight integration suite under `src/web/tests/` that exercises:
+
+- meeting creation
+- preference validation
+- allocation after the deadline
+- concurrent allocation requests without double booking
+
+The suite uses the current `capstone_project` database and deletes only the records it creates.
+
+Run the integration tests:
+
+```powershell
+docker compose exec web php tests/run_integration.php
+```
+
 ## Email Delivery Notes
 
 The system no longer sends instructor-triggered emails directly inside the request handler. Instead:
@@ -210,8 +227,7 @@ If the Gemini key is missing, the rest of the application can still function, bu
 
 - `src/web/config.php` currently contains real-looking default mail credentials and a legacy default `APP_BASE_URL`. Treat these as development placeholders and override them locally.
 - Some older PHP pages still assume the web root path pattern `/testwsqlnew/...` through `$_SERVER["DOCUMENT_ROOT"]`.
-- The Compose file maps MySQL to host port `50000`, while the web container should still connect to the DB service by hostname `db`.
-- The application has very limited automated tests; most verification is manual.
+- The automated integration suite uses the shared development database, so avoid running it while manually editing the same meeting records.
 
 ## Troubleshooting
 
