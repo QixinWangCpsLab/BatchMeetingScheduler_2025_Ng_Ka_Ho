@@ -131,11 +131,15 @@ if ($result->num_rows<1){
                 WHERE p.examid = ?
                 AND s.scheduled = 0
                 GROUP BY p.studentid
-                ORDER BY MIN(p.timestamp) ASC
             ");
             $studentQueue->bind_param("s", $examId);
             $studentQueue->execute();
             $studentResult = $studentQueue->get_result();
+            $studentRows = $studentResult->fetch_all(MYSQLI_ASSOC);
+
+            if (count($studentRows) > 1) {
+                shuffle($studentRows);
+            }
 
             $preferencesStmt = $conn->prepare("
                 SELECT timeslotid
@@ -171,8 +175,8 @@ if ($result->num_rows<1){
                 WHERE examid = ? AND timeslotid = ?
             ");
 
-            // Students are processed in timestamp order so earlier submissions get first chance at their ranked preferences.
-            while ($studentRow = $studentResult->fetch_assoc()) {
+            // Students are processed in random order while each student keeps their ranked preferences.
+            foreach ($studentRows as $studentRow) {
                 $studentId = $studentRow['studentid'];
 
                 $preferencesStmt->bind_param("ss", $examId, $studentId);

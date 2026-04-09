@@ -23,7 +23,7 @@ final class IntegrationTestSuite
         $tests = [
             'meeting creation stores the meeting, slots, and student roster' => fn() => $this->testMeetingCreation(),
             'validation rejects duplicate slot selections' => fn() => $this->testValidationRejectsDuplicateSelections(),
-            'allocation assigns students into ranked available slots' => fn() => $this->testAllocationWorks(),
+            'allocation assigns students into available slots without duplicates' => fn() => $this->testAllocationWorks(),
             'concurrent allocation requests do not double book slots or students' => fn() => $this->testConcurrentAllocationAvoidsDoubleBooking(),
         ];
 
@@ -163,15 +163,13 @@ final class IntegrationTestSuite
         $this->assertContains($students[0], $response['output'], 'Allocated result page did not include the first student.');
         $this->assertContains($students[1], $response['output'], 'Allocated result page did not include the second student.');
 
-        $results = $this->fetchAll(
-            'SELECT studentid, timeslotid FROM result WHERE examid = ? ORDER BY studentid ASC',
-            's',
-            [$meeting['examid']]
-        );
+        $assignedCount = (int) $this->fetchValue('SELECT COUNT(*) FROM result WHERE examid = ?', 's', [$meeting['examid']]);
+        $distinctStudents = (int) $this->fetchValue('SELECT COUNT(DISTINCT studentid) FROM result WHERE examid = ?', 's', [$meeting['examid']]);
+        $distinctSlots = (int) $this->fetchValue('SELECT COUNT(DISTINCT timeslotid) FROM result WHERE examid = ?', 's', [$meeting['examid']]);
 
-        $this->assertSame(2, count($results), 'Expected both students to receive a slot.');
-        $this->assertSame($slotIds[0], (int) $results[0]['timeslotid'], 'The first student did not receive the first preferred slot.');
-        $this->assertSame($slotIds[1], (int) $results[1]['timeslotid'], 'The second student did not receive the fallback slot.');
+        $this->assertSame(2, $assignedCount, 'Expected both students to receive a slot.');
+        $this->assertSame(2, $distinctStudents, 'Expected both students to be allocated exactly once.');
+        $this->assertSame(2, $distinctSlots, 'Expected both available slots to be used exactly once.');
     }
 
     private function testConcurrentAllocationAvoidsDoubleBooking(): void
